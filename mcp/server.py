@@ -64,7 +64,7 @@ async def create_domain(
         "color": color,
         "sort_order": sort_order,
     })
-    return await api.post("/api/domains", json=body)
+    return await api.post("/api/domains/", json=body)
 
 
 @mcp.tool()
@@ -75,7 +75,7 @@ async def list_domains() -> list:
     what areas of life are being tracked, or to find a domain_id for
     creating goals.
     """
-    return await api.get("/api/domains")
+    return await api.get("/api/domains/")
 
 
 @mcp.tool()
@@ -143,7 +143,7 @@ async def create_goal(
         "description": description,
         "status": status,
     })
-    return await api.post("/api/goals", json=body)
+    return await api.post("/api/goals/", json=body)
 
 
 @mcp.tool()
@@ -158,7 +158,7 @@ async def list_goals(
     Use this to find goal IDs for creating projects.
     """
     return await api.get(
-        "/api/goals", params=_params(domain_id=domain_id, status=status)
+        "/api/goals/", params=_params(domain_id=domain_id, status=status)
     )
 
 
@@ -231,7 +231,7 @@ async def create_project(
         "status": status,
         "deadline": deadline,
     })
-    return await api.post("/api/projects", json=body)
+    return await api.post("/api/projects/", json=body)
 
 
 @mcp.tool()
@@ -248,7 +248,7 @@ async def list_projects(
     All filters combine with AND logic.
     """
     return await api.get(
-        "/api/projects",
+        "/api/projects/",
         params=_params(
             goal_id=goal_id,
             status=status,
@@ -345,7 +345,7 @@ async def create_task(
         "due_date": due_date,
         "recurrence_rule": recurrence_rule,
     })
-    return await api.post("/api/tasks", json=body)
+    return await api.post("/api/tasks/", json=body)
 
 
 @mcp.tool()
@@ -378,7 +378,7 @@ async def list_tasks(
     - overdue=true: tasks past due that aren't completed/skipped
     """
     return await api.get(
-        "/api/tasks",
+        "/api/tasks/",
         params=_params(
             project_id=project_id,
             standalone=standalone,
@@ -471,7 +471,7 @@ async def create_tag(
     returned instead of creating a duplicate.
     """
     body = _strip_nones({"name": name, "color": color})
-    return await api.post("/api/tags", json=body)
+    return await api.post("/api/tags/", json=body)
 
 
 @mcp.tool()
@@ -483,7 +483,7 @@ async def list_tags(
     The search parameter does a case-insensitive partial match on tag
     names. Use this to find existing tags before creating new ones.
     """
-    return await api.get("/api/tags", params=_params(search=search))
+    return await api.get("/api/tags/", params=_params(search=search))
 
 
 @mcp.tool()
@@ -575,7 +575,7 @@ async def create_routine(
         "energy_cost": energy_cost,
         "activation_friction": activation_friction,
     })
-    return await api.post("/api/routines", json=body)
+    return await api.post("/api/routines/", json=body)
 
 
 @mcp.tool()
@@ -592,7 +592,7 @@ async def list_routines(
     streak. All filters combine with AND logic.
     """
     return await api.get(
-        "/api/routines",
+        "/api/routines/",
         params=_params(
             domain_id=domain_id,
             status=status,
@@ -738,7 +738,7 @@ async def create_checkin(
         "freeform_note": freeform_note,
         "context": context,
     })
-    return await api.post("/api/checkins", json=body)
+    return await api.post("/api/checkins/", json=body)
 
 
 @mcp.tool()
@@ -755,7 +755,7 @@ async def list_checkins(
     state history and identify patterns.
     """
     return await api.get(
-        "/api/checkins",
+        "/api/checkins/",
         params=_params(
             checkin_type=checkin_type,
             context=context,
@@ -841,7 +841,7 @@ async def log_activity(
         "friction_actual": friction_actual,
         "duration_minutes": duration_minutes,
     })
-    return await api.post("/api/activity", json=body)
+    return await api.post("/api/activity/", json=body)
 
 
 @mcp.tool()
@@ -861,7 +861,7 @@ async def list_activity(
     Use this to review what the user has been doing and how they felt.
     """
     return await api.get(
-        "/api/activity",
+        "/api/activity/",
         params=_params(
             action_type=action_type,
             task_id=task_id,
