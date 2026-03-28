@@ -72,7 +72,7 @@ Add to your Claude Code settings or project `.mcp.json`:
 }
 ```
 
-## Available Tools (50)
+## Available Tools (53)
 
 ### Health Check
 | Tool | Description |
