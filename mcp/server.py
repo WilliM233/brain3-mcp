@@ -9,6 +9,22 @@ import os
 from mcp.server.fastmcp import FastMCP
 
 from client import BrainAPIClient, BrainAPIError
+from validation import (
+    InputValidationError,
+    validate_enum,
+    validate_range,
+    validate_required_str,
+    validate_uuid,
+    ACTION_TYPES,
+    CHECKIN_TYPES,
+    COGNITIVE_TYPES,
+    DAYS_OF_WEEK,
+    GOAL_STATUSES,
+    PROJECT_STATUSES,
+    ROUTINE_FREQUENCIES,
+    ROUTINE_STATUSES,
+    TASK_STATUSES,
+)
 
 mcp = FastMCP("BRAIN 3.0")
 api = BrainAPIClient()
@@ -58,6 +74,7 @@ async def create_domain(
     Finances, Career, Relationships). Use this when the user wants to
     establish a new area of focus in their life.
     """
+    validate_required_str(name, "name")
     body = _strip_nones({
         "name": name,
         "description": description,
@@ -85,6 +102,7 @@ async def get_domain(domain_id: str) -> dict:
     Use this to see the full picture of a life domain — its details and
     all goals underneath it. The domain_id should be a UUID.
     """
+    validate_uuid(domain_id, "domain_id")
     return await api.get(f"/api/domains/{domain_id}")
 
 
@@ -101,6 +119,7 @@ async def update_domain(
     Only provided fields are changed — omit fields to leave them as-is.
     Use this to rename, recolor, or reorder domains.
     """
+    validate_uuid(domain_id, "domain_id")
     body = _strip_nones({
         "name": name,
         "description": description,
@@ -117,6 +136,7 @@ async def delete_domain(domain_id: str) -> dict:
     This permanently removes the domain. Use with care — confirm with
     the user before deleting.
     """
+    validate_uuid(domain_id, "domain_id")
     return await api.delete(f"/api/domains/{domain_id}")
 
 
@@ -137,6 +157,9 @@ async def create_goal(
     Goals are enduring outcomes tied to a life domain (e.g. "Lose 20 lbs"
     under Health). Status options: active, paused, achieved, abandoned.
     """
+    validate_uuid(domain_id, "domain_id")
+    validate_required_str(title, "title")
+    validate_enum(status, "status", GOAL_STATUSES)
     body = _strip_nones({
         "domain_id": domain_id,
         "title": title,
@@ -157,6 +180,8 @@ async def list_goals(
     (active, paused, achieved, abandoned). Combine filters with AND logic.
     Use this to find goal IDs for creating projects.
     """
+    validate_uuid(domain_id, "domain_id")
+    validate_enum(status, "status", GOAL_STATUSES)
     return await api.get(
         "/api/goals/", params=_params(domain_id=domain_id, status=status)
     )
@@ -169,6 +194,7 @@ async def get_goal(goal_id: str) -> dict:
     Returns the goal details and all projects underneath it. Use this to
     see the full breakdown of work under a goal.
     """
+    validate_uuid(goal_id, "goal_id")
     return await api.get(f"/api/goals/{goal_id}")
 
 
@@ -186,6 +212,9 @@ async def update_goal(
     mark as achieved), move to a different domain, or update the title.
     Status options: active, paused, achieved, abandoned.
     """
+    validate_uuid(goal_id, "goal_id")
+    validate_uuid(domain_id, "domain_id")
+    validate_enum(status, "status", GOAL_STATUSES)
     body = _strip_nones({
         "domain_id": domain_id,
         "title": title,
@@ -201,6 +230,7 @@ async def delete_goal(goal_id: str) -> dict:
 
     Permanently removes the goal. Confirm with the user before deleting.
     """
+    validate_uuid(goal_id, "goal_id")
     return await api.delete(f"/api/goals/{goal_id}")
 
 
@@ -224,6 +254,9 @@ async def create_project(
     not_started, active, blocked, completed, abandoned.
     Deadline format: YYYY-MM-DD.
     """
+    validate_uuid(goal_id, "goal_id")
+    validate_required_str(title, "title")
+    validate_enum(status, "status", PROJECT_STATUSES)
     body = _strip_nones({
         "goal_id": goal_id,
         "title": title,
@@ -247,6 +280,8 @@ async def list_projects(
     abandoned), whether they have a deadline, or whether they're overdue.
     All filters combine with AND logic.
     """
+    validate_uuid(goal_id, "goal_id")
+    validate_enum(status, "status", PROJECT_STATUSES)
     return await api.get(
         "/api/projects/",
         params=_params(
@@ -265,6 +300,7 @@ async def get_project(project_id: str) -> dict:
     Returns the project details, progress percentage, and all tasks
     underneath it. Use this to see the full task breakdown.
     """
+    validate_uuid(project_id, "project_id")
     return await api.get(f"/api/projects/{project_id}")
 
 
@@ -283,6 +319,9 @@ async def update_project(
     a different goal, update the deadline, etc. Status options: not_started,
     active, blocked, completed, abandoned. Deadline format: YYYY-MM-DD.
     """
+    validate_uuid(project_id, "project_id")
+    validate_uuid(goal_id, "goal_id")
+    validate_enum(status, "status", PROJECT_STATUSES)
     body = _strip_nones({
         "goal_id": goal_id,
         "title": title,
@@ -299,6 +338,7 @@ async def delete_project(project_id: str) -> dict:
 
     Permanently removes the project. Confirm with the user before deleting.
     """
+    validate_uuid(project_id, "project_id")
     return await api.delete(f"/api/projects/{project_id}")
 
 
@@ -333,6 +373,12 @@ async def create_task(
     Due date format: YYYY-MM-DD.
     Recurrence rule: RRULE format (e.g. "FREQ=DAILY").
     """
+    validate_required_str(title, "title")
+    validate_uuid(project_id, "project_id")
+    validate_enum(status, "status", TASK_STATUSES)
+    validate_enum(cognitive_type, "cognitive_type", COGNITIVE_TYPES)
+    validate_range(energy_cost, "energy_cost")
+    validate_range(activation_friction, "activation_friction")
     body = _strip_nones({
         "project_id": project_id,
         "title": title,
@@ -377,6 +423,13 @@ async def list_tasks(
     - due_before/due_after: date range (YYYY-MM-DD)
     - overdue=true: tasks past due that aren't completed/skipped
     """
+    validate_uuid(project_id, "project_id")
+    validate_enum(status, "status", TASK_STATUSES)
+    validate_enum(cognitive_type, "cognitive_type", COGNITIVE_TYPES)
+    validate_range(energy_cost_min, "energy_cost_min")
+    validate_range(energy_cost_max, "energy_cost_max")
+    validate_range(friction_min, "friction_min")
+    validate_range(friction_max, "friction_max")
     return await api.get(
         "/api/tasks/",
         params=_params(
@@ -403,6 +456,7 @@ async def get_task(task_id: str) -> dict:
     Returns the full task details including any attached tags. Use this
     to see everything about a specific task.
     """
+    validate_uuid(task_id, "task_id")
     return await api.get(f"/api/tasks/{task_id}")
 
 
@@ -428,6 +482,12 @@ async def update_task(
     Status: pending, active, completed, skipped, deferred.
     Energy cost & activation friction: 1-5 scale.
     """
+    validate_uuid(task_id, "task_id")
+    validate_uuid(project_id, "project_id")
+    validate_enum(status, "status", TASK_STATUSES)
+    validate_enum(cognitive_type, "cognitive_type", COGNITIVE_TYPES)
+    validate_range(energy_cost, "energy_cost")
+    validate_range(activation_friction, "activation_friction")
     body = _strip_nones({
         "project_id": project_id,
         "title": title,
@@ -450,6 +510,7 @@ async def delete_task(task_id: str) -> dict:
     Removes the task and its tag associations. Confirm with the user
     before deleting.
     """
+    validate_uuid(task_id, "task_id")
     return await api.delete(f"/api/tasks/{task_id}")
 
 
@@ -470,6 +531,7 @@ async def create_tag(
     semantics — if a tag with this name exists (case-insensitive), it's
     returned instead of creating a duplicate.
     """
+    validate_required_str(name, "name")
     body = _strip_nones({"name": name, "color": color})
     return await api.post("/api/tags/", json=body)
 
@@ -489,6 +551,7 @@ async def list_tags(
 @mcp.tool()
 async def get_tag(tag_id: str) -> dict:
     """Get a single tag by ID."""
+    validate_uuid(tag_id, "tag_id")
     return await api.get(f"/api/tags/{tag_id}")
 
 
@@ -502,6 +565,7 @@ async def update_tag(
 
     Only provided fields are changed.
     """
+    validate_uuid(tag_id, "tag_id")
     body = _strip_nones({"name": name, "color": color})
     return await api.patch(f"/api/tags/{tag_id}", json=body)
 
@@ -509,6 +573,7 @@ async def update_tag(
 @mcp.tool()
 async def delete_tag(tag_id: str) -> dict:
     """Delete a tag. Removes it from all tasks that use it."""
+    validate_uuid(tag_id, "tag_id")
     return await api.delete(f"/api/tags/{tag_id}")
 
 
@@ -519,18 +584,23 @@ async def tag_task(task_id: str, tag_id: str) -> dict:
     This is idempotent — calling it again with the same tag has no effect.
     Use this to categorize tasks for flexible filtering and grouping.
     """
+    validate_uuid(task_id, "task_id")
+    validate_uuid(tag_id, "tag_id")
     return await api.post(f"/api/tasks/{task_id}/tags/{tag_id}")
 
 
 @mcp.tool()
 async def untag_task(task_id: str, tag_id: str) -> dict:
     """Remove a tag from a task."""
+    validate_uuid(task_id, "task_id")
+    validate_uuid(tag_id, "tag_id")
     return await api.delete(f"/api/tasks/{task_id}/tags/{tag_id}")
 
 
 @mcp.tool()
 async def list_task_tags(task_id: str) -> list:
     """List all tags attached to a task."""
+    validate_uuid(task_id, "task_id")
     return await api.get(f"/api/tasks/{task_id}/tags")
 
 
@@ -540,6 +610,7 @@ async def list_tagged_tasks(tag_id: str) -> list:
 
     Use this to find all tasks in a category (e.g. all "quick-win" tasks).
     """
+    validate_uuid(tag_id, "tag_id")
     return await api.get(f"/api/tags/{tag_id}/tasks")
 
 
@@ -566,6 +637,12 @@ async def create_routine(
     Energy cost & activation friction: 1-5 scale.
     Status: active, paused, retired.
     """
+    validate_uuid(domain_id, "domain_id")
+    validate_required_str(title, "title")
+    validate_enum(frequency, "frequency", ROUTINE_FREQUENCIES)
+    validate_enum(status, "status", ROUTINE_STATUSES)
+    validate_range(energy_cost, "energy_cost")
+    validate_range(activation_friction, "activation_friction")
     body = _strip_nones({
         "domain_id": domain_id,
         "title": title,
@@ -591,6 +668,9 @@ async def list_routines(
     or streak_broken=true to find active routines that have lost their
     streak. All filters combine with AND logic.
     """
+    validate_uuid(domain_id, "domain_id")
+    validate_enum(status, "status", ROUTINE_STATUSES)
+    validate_enum(frequency, "frequency", ROUTINE_FREQUENCIES)
     return await api.get(
         "/api/routines/",
         params=_params(
@@ -609,6 +689,7 @@ async def get_routine(routine_id: str) -> dict:
     Returns the routine details including current streak, best streak,
     last completion date, and all schedule entries.
     """
+    validate_uuid(routine_id, "routine_id")
     return await api.get(f"/api/routines/{routine_id}")
 
 
@@ -628,6 +709,12 @@ async def update_routine(
     Only provided fields are changed. Use this to pause/retire a routine,
     change its frequency, or update energy/friction ratings.
     """
+    validate_uuid(routine_id, "routine_id")
+    validate_uuid(domain_id, "domain_id")
+    validate_enum(frequency, "frequency", ROUTINE_FREQUENCIES)
+    validate_enum(status, "status", ROUTINE_STATUSES)
+    validate_range(energy_cost, "energy_cost")
+    validate_range(activation_friction, "activation_friction")
     body = _strip_nones({
         "domain_id": domain_id,
         "title": title,
@@ -647,6 +734,7 @@ async def delete_routine(routine_id: str) -> dict:
     Removes the routine, its schedules, and completion history.
     Confirm with the user before deleting.
     """
+    validate_uuid(routine_id, "routine_id")
     return await api.delete(f"/api/routines/{routine_id}")
 
 
@@ -662,6 +750,7 @@ async def complete_routine(
     If completed_date is omitted, today's date is used.
     Date format: YYYY-MM-DD.
     """
+    validate_uuid(routine_id, "routine_id")
     body = _strip_nones({"completed_date": completed_date})
     return await api.post(
         f"/api/routines/{routine_id}/complete", json=body or None
@@ -681,6 +770,9 @@ async def add_routine_schedule(
     sunday. time_of_day: 24h format (e.g. "08:30"). preferred_window:
     optional label like "morning", "afternoon", "evening".
     """
+    validate_uuid(routine_id, "routine_id")
+    validate_enum(day_of_week, "day_of_week", DAYS_OF_WEEK)
+    validate_required_str(time_of_day, "time_of_day")
     body = _strip_nones({
         "day_of_week": day_of_week,
         "time_of_day": time_of_day,
@@ -694,6 +786,7 @@ async def add_routine_schedule(
 @mcp.tool()
 async def list_routine_schedules(routine_id: str) -> list:
     """List all schedule entries for a routine."""
+    validate_uuid(routine_id, "routine_id")
     return await api.get(f"/api/routines/{routine_id}/schedules")
 
 
@@ -702,6 +795,8 @@ async def delete_routine_schedule(
     routine_id: str, schedule_id: str
 ) -> dict:
     """Remove a schedule entry from a routine."""
+    validate_uuid(routine_id, "routine_id")
+    validate_uuid(schedule_id, "schedule_id")
     return await api.delete(
         f"/api/routines/{routine_id}/schedules/{schedule_id}"
     )
@@ -730,6 +825,10 @@ async def create_checkin(
     Energy, mood, focus: 1 (low) to 5 (high).
     Context: optional label for where/what the user is doing.
     """
+    validate_enum(checkin_type, "checkin_type", CHECKIN_TYPES)
+    validate_range(energy_level, "energy_level")
+    validate_range(mood, "mood")
+    validate_range(focus_level, "focus_level")
     body = _strip_nones({
         "checkin_type": checkin_type,
         "energy_level": energy_level,
@@ -754,6 +853,7 @@ async def list_checkins(
     or date range (ISO datetime format). Use this to review the user's
     state history and identify patterns.
     """
+    validate_enum(checkin_type, "checkin_type", CHECKIN_TYPES)
     return await api.get(
         "/api/checkins/",
         params=_params(
@@ -768,6 +868,7 @@ async def list_checkins(
 @mcp.tool()
 async def get_checkin(checkin_id: str) -> dict:
     """Get a single check-in by ID."""
+    validate_uuid(checkin_id, "checkin_id")
     return await api.get(f"/api/checkins/{checkin_id}")
 
 
@@ -785,6 +886,11 @@ async def update_checkin(
 
     Only provided fields are changed.
     """
+    validate_uuid(checkin_id, "checkin_id")
+    validate_enum(checkin_type, "checkin_type", CHECKIN_TYPES)
+    validate_range(energy_level, "energy_level")
+    validate_range(mood, "mood")
+    validate_range(focus_level, "focus_level")
     body = _strip_nones({
         "checkin_type": checkin_type,
         "energy_level": energy_level,
@@ -799,6 +905,7 @@ async def update_checkin(
 @mcp.tool()
 async def delete_checkin(checkin_id: str) -> dict:
     """Delete a check-in."""
+    validate_uuid(checkin_id, "checkin_id")
     return await api.delete(f"/api/checkins/{checkin_id}")
 
 
@@ -829,6 +936,14 @@ async def log_activity(
     checked_in.
     Energy before/after, mood, friction: 1-5 scale.
     """
+    validate_enum(action_type, "action_type", ACTION_TYPES)
+    validate_uuid(task_id, "task_id")
+    validate_uuid(routine_id, "routine_id")
+    validate_uuid(checkin_id, "checkin_id")
+    validate_range(energy_before, "energy_before")
+    validate_range(energy_after, "energy_after")
+    validate_range(mood_rating, "mood_rating")
+    validate_range(friction_actual, "friction_actual")
     body = _strip_nones({
         "task_id": task_id,
         "routine_id": routine_id,
@@ -860,6 +975,9 @@ async def list_activity(
     entries have a task/routine attached. Results are ordered newest first.
     Use this to review what the user has been doing and how they felt.
     """
+    validate_enum(action_type, "action_type", ACTION_TYPES)
+    validate_uuid(task_id, "task_id")
+    validate_uuid(routine_id, "routine_id")
     return await api.get(
         "/api/activity/",
         params=_params(
@@ -881,6 +999,7 @@ async def get_activity(entry_id: str) -> dict:
     Returns the entry with full task, routine, or check-in details
     attached (not just IDs).
     """
+    validate_uuid(entry_id, "entry_id")
     return await api.get(f"/api/activity/{entry_id}")
 
 
@@ -902,6 +1021,15 @@ async def update_activity(
 
     Only provided fields are changed.
     """
+    validate_uuid(entry_id, "entry_id")
+    validate_uuid(task_id, "task_id")
+    validate_uuid(routine_id, "routine_id")
+    validate_uuid(checkin_id, "checkin_id")
+    validate_enum(action_type, "action_type", ACTION_TYPES)
+    validate_range(energy_before, "energy_before")
+    validate_range(energy_after, "energy_after")
+    validate_range(mood_rating, "mood_rating")
+    validate_range(friction_actual, "friction_actual")
     body = _strip_nones({
         "task_id": task_id,
         "routine_id": routine_id,
@@ -920,6 +1048,7 @@ async def update_activity(
 @mcp.tool()
 async def delete_activity(entry_id: str) -> dict:
     """Delete an activity log entry."""
+    validate_uuid(entry_id, "entry_id")
     return await api.delete(f"/api/activity/{entry_id}")
 
 
@@ -939,6 +1068,8 @@ async def get_activity_summary(after: str, before: str) -> dict:
     Date format: ISO datetime (e.g. "2025-03-01T00:00:00").
     Both after and before are required.
     """
+    validate_required_str(after, "after")
+    validate_required_str(before, "before")
     return await api.get(
         "/api/reports/activity-summary",
         params={"after": after, "before": before},
@@ -966,6 +1097,8 @@ async def get_routine_adherence(after: str, before: str) -> list:
 
     Date format: ISO datetime. Both after and before are required.
     """
+    validate_required_str(after, "after")
+    validate_required_str(before, "before")
     return await api.get(
         "/api/reports/routine-adherence",
         params={"after": after, "before": before},
