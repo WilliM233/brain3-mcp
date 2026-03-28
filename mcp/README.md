@@ -6,6 +6,7 @@ MCP (Model Context Protocol) server that gives Claude full access to the BRAIN 3
 
 - Python 3.12+
 - BRAIN 3.0 API running (default: `http://localhost:8000`)
+- Compatible with: brain3 v1.0.0+
 
 ## Installation
 
