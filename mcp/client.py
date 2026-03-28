@@ -81,7 +81,10 @@ class BrainAPIClient:
                 f"Request to BRAIN 3.0 API timed out ({method} {path})."
             )
         except Exception as exc:
-            raise BrainAPIError(f"Unexpected error: {exc}")
+            raise BrainAPIError(
+                f"Unexpected error communicating with BRAIN 3.0 API ({type(exc).__name__}). "
+                "Check that the API is running and accessible."
+            )
 
         if response.status_code == 204:
             return {}
