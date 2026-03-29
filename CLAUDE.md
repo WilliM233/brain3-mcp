@@ -39,18 +39,17 @@ This repo should always be developed alongside `brain3`. Both repos live in the 
 ```
 brain3-mcp/
 ├── CLAUDE.md              ← You are here
-├── README.md              ← Setup and Claude Desktop config
+├── README.md              ← Setup, config, and full tool reference
 ├── mcp/                   ← MCP server package
 │   ├── server.py          ← All tool definitions and MCP server (monolith)
 │   ├── client.py          ← HTTP client wrapper for the BRAIN API
 │   ├── validation.py      ← Input validation helpers
-│   ├── requirements.txt   ← Python dependencies
-│   └── README.md          ← MCP-specific documentation
+│   └── requirements.txt   ← Python dependencies
 ├── docs/                  ← Design documents and ticket specs
 └── LICENSE
 ```
 
-> **Architecture note:** The MCP server is a single-file monolith (`server.py`) by design in v1.0.0. All tool definitions — CRUD for every entity, tag management, routine operations, and reporting — live in one file. This is a deliberate Phase 1 decision: the 1:1 tool mapping doesn't benefit from modular separation yet. Phase 2 introduces composite tools (e.g., "complete routine + log activity + check in" as a single operation), which will justify splitting into per-entity modules under a `tools/` directory.
+> **Architecture note:** The MCP server is a single-file monolith (`server.py`) by design in v1.0.0. All tool definitions — CRUD for every entity, tag management, routine operations, and reporting — live in one file. This is a deliberate Phase 1 decision: the 1:1 tool mapping doesn't benefit from modular separation yet. Phase 2 may introduce composite tools (e.g., "complete routine + log activity + check in" as a single operation), which could justify splitting into per-entity modules.
 
 ---
 
