@@ -926,6 +926,7 @@ async def log_activity(
     mood_rating: int | None = None,
     friction_actual: int | None = None,
     duration_minutes: int | None = None,
+    tag_ids: list[str] | None = None,
 ) -> dict:
     """Create an activity log entry.
 
@@ -935,6 +936,9 @@ async def log_activity(
     Action types: completed, skipped, deferred, started, reflected,
     checked_in.
     Energy before/after, mood, friction: 1-5 scale.
+
+    Optionally pass tag_ids to tag the entry at creation time, saving
+    separate tag_activity calls. Tags are returned in the response.
     """
     validate_enum(action_type, "action_type", ACTION_TYPES)
     validate_uuid(task_id, "task_id")
@@ -944,6 +948,9 @@ async def log_activity(
     validate_range(energy_after, "energy_after")
     validate_range(mood_rating, "mood_rating")
     validate_range(friction_actual, "friction_actual")
+    if tag_ids is not None:
+        for tid in tag_ids:
+            validate_uuid(tid, "tag_ids element")
     body = _strip_nones({
         "task_id": task_id,
         "routine_id": routine_id,
@@ -955,6 +962,7 @@ async def log_activity(
         "mood_rating": mood_rating,
         "friction_actual": friction_actual,
         "duration_minutes": duration_minutes,
+        "tag_ids": tag_ids,
     })
     return await api.post("/api/activity/", json=body)
 
@@ -968,12 +976,17 @@ async def list_activity(
     logged_before: str | None = None,
     has_task: bool | None = None,
     has_routine: bool | None = None,
+    tag: str | None = None,
 ) -> list:
     """List activity log entries with optional filters.
 
     Filter by action type, linked task or routine, date range, or whether
     entries have a task/routine attached. Results are ordered newest first.
     Use this to review what the user has been doing and how they felt.
+
+    The tag parameter accepts comma-separated tag names with AND logic.
+    Example: tag="session-handoff" or tag="movie,fluxnook" (entries must
+    have ALL listed tags).
     """
     validate_enum(action_type, "action_type", ACTION_TYPES)
     validate_uuid(task_id, "task_id")
@@ -988,6 +1001,7 @@ async def list_activity(
             logged_before=logged_before,
             has_task=has_task,
             has_routine=has_routine,
+            tag=tag,
         ),
     )
 
@@ -1050,6 +1064,50 @@ async def delete_activity(entry_id: str) -> dict:
     """Delete an activity log entry."""
     validate_uuid(entry_id, "entry_id")
     return await api.delete(f"/api/activity/{entry_id}")
+
+
+# ---------------------------------------------------------------------------
+# Activity Tag Tools
+# ---------------------------------------------------------------------------
+
+
+@mcp.tool()
+async def tag_activity(activity_id: str, tag_id: str) -> dict:
+    """Attach a tag to an activity log entry.
+
+    This is idempotent — calling it again with the same tag has no effect.
+    Use this to categorize activity entries for filtering and discovery
+    (e.g. session-handoff notes, media reviews, life logging themes).
+    """
+    validate_uuid(activity_id, "activity_id")
+    validate_uuid(tag_id, "tag_id")
+    return await api.post(f"/api/activity/{activity_id}/tags/{tag_id}")
+
+
+@mcp.tool()
+async def untag_activity(activity_id: str, tag_id: str) -> dict:
+    """Remove a tag from an activity log entry."""
+    validate_uuid(activity_id, "activity_id")
+    validate_uuid(tag_id, "tag_id")
+    return await api.delete(f"/api/activity/{activity_id}/tags/{tag_id}")
+
+
+@mcp.tool()
+async def list_activity_tags(activity_id: str) -> list:
+    """List all tags attached to an activity log entry."""
+    validate_uuid(activity_id, "activity_id")
+    return await api.get(f"/api/activity/{activity_id}/tags")
+
+
+@mcp.tool()
+async def list_tagged_activities(tag_id: str) -> list:
+    """List all activity log entries that have a specific tag.
+
+    Use this to find all activities in a category (e.g. all entries tagged
+    "session-handoff" for context recovery, or "fluxnook" for media reviews).
+    """
+    validate_uuid(tag_id, "tag_id")
+    return await api.get(f"/api/tags/{tag_id}/activities")
 
 
 # ---------------------------------------------------------------------------
