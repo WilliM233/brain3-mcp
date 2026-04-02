@@ -6,7 +6,7 @@ MCP (Model Context Protocol) server that gives Claude full access to the BRAIN 3
 
 - Python 3.12+
 - BRAIN 3.0 API running (default: `http://localhost:8000`)
-- Compatible with: brain3 v1.0.0+
+- Compatible with: brain3 v1.1.0+
 
 ## Installation
 
@@ -116,7 +116,7 @@ Add to your Claude Code settings or project `.mcp.json`:
 | `update_task` | Update task details or status |
 | `delete_task` | Delete a task |
 
-### Tags (9)
+### Tags (13)
 | Tool | Description |
 |------|-------------|
 | `create_tag` | Create a tag (get-or-create semantics) |
@@ -128,6 +128,10 @@ Add to your Claude Code settings or project `.mcp.json`:
 | `untag_task` | Remove a tag from a task |
 | `list_task_tags` | List tags on a task |
 | `list_tagged_tasks` | List tasks with a specific tag |
+| `tag_activity` | Attach a tag to an activity log entry |
+| `untag_activity` | Remove a tag from an activity log entry |
+| `list_activity_tags` | List tags on an activity log entry |
+| `list_tagged_activities` | List activity entries with a specific tag |
 
 ### Routines (9)
 | Tool | Description |
@@ -154,8 +158,8 @@ Add to your Claude Code settings or project `.mcp.json`:
 ### Activity Log (5)
 | Tool | Description |
 |------|-------------|
-| `log_activity` | Record what happened and how it felt |
-| `list_activity` | List activity (filter by type, task, routine, dates) |
+| `log_activity` | Record what happened and how it felt (optional tag_ids for tagging at creation) |
+| `list_activity` | List activity (filter by type, task, routine, dates, tags) |
 | `get_activity` | Get activity entry with resolved references |
 | `update_activity` | Update an activity entry |
 | `delete_activity` | Delete an activity entry |
