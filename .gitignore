@@ -69,3 +69,6 @@ dmypy.json
 # OS files
 .DS_Store
 Thumbs.db
+
+# Developer onboarding — stored in BRAIN, not in repo
+CLAUDE.md
