@@ -1,6 +1,40 @@
 # BRAIN 3.0 MCP Server
 
-MCP (Model Context Protocol) server that gives Claude full access to the BRAIN 3.0 API. Every API endpoint is exposed as a tool Claude can call, turning your task/routine/goal database into a conversational partner.
+MCP (Model Context Protocol) server that gives Claude full access to the BRAIN 3.0 API. Every API endpoint is exposed as a tool Claude can call — 109 tools covering the seven pillars, knowledge layer, batch operations, and reporting. Turns your task/routine/goal/knowledge database into a conversational partner.
+
+## Project Structure
+
+```
+brain3-mcp/
+├── README.md              ← Setup, config, tool inventory (you are here)
+├── LICENSE                ← AGPL-3.0
+├── docs/
+│   └── MCP_TOOL_GUIDE.md ← Detailed tool reference with usage patterns
+└── mcp/
+    ├── server.py          ← MCP server entry point + health_check tool
+    ├── client.py          ← Async HTTP client for the BRAIN 3.0 API
+    ├── validation.py      ← Input validation helpers (UUID, enum, range)
+    ├── requirements.txt   ← Python dependencies (mcp, httpx)
+    └── tools/             ← Tool definitions organized by entity
+        ├── __init__.py    ← register_all(mcp, api) orchestrator
+        ├── _helpers.py    ← Shared utilities (strip_nones, params)
+        ├── activity.py    ← Activity logging + tagging (9 tools)
+        ├── artifacts.py   ← Document storage + tagging (9 tools)
+        ├── batch.py       ← Batch create + batch tag (9 tools)
+        ├── checkins.py    ← Check-in CRUD (5 tools)
+        ├── directives.py  ← Behavioral rules + tagging + resolve (10 tools)
+        ├── domains.py     ← Life domain CRUD (5 tools)
+        ├── goals.py       ← Goal CRUD (5 tools)
+        ├── projects.py    ← Project CRUD (5 tools)
+        ├── protocols.py   ← Procedure CRUD + tagging (9 tools)
+        ├── reports.py     ← Analytics endpoints (4 tools)
+        ├── routines.py    ← Routine CRUD + scheduling (9 tools)
+        ├── skills.py      ← Operating modes + entity linking (15 tools)
+        ├── tags.py        ← Tag CRUD (5 tools)
+        └── tasks.py       ← Task CRUD + tagging (9 tools)
+```
+
+Each module in `tools/` exports a `register(mcp, api)` function that defines tools using `@mcp.tool()` decorators. The `__init__.py` orchestrates registration by calling each module's `register()` function via `register_all(mcp, api)`. Adding a new tool means adding a function in the appropriate entity module — no changes to `__init__.py` or `server.py` needed.
 
 ## Prerequisites
 
@@ -257,6 +291,26 @@ Add to your Claude Code settings or project `.mcp.json`:
 
 **API errors being passed through**
 - This is expected behavior. The MCP passes API error messages (e.g. validation errors, 404s) directly to Claude so it can understand what went wrong and adjust.
+
+## Architecture
+
+The MCP server is a **thin, stateless translation layer**. It makes no decisions — Claude's intelligence handles reasoning and composition. The server translates tool calls into HTTP requests and returns the API response.
+
+```
+Claude Desktop / Claude Code
+        | stdio
+   brain3-mcp (this server)
+        | HTTP (httpx)
+   brain3 FastAPI (localhost or TrueNAS IP)
+        |
+   PostgreSQL
+```
+
+**Design principles:**
+- **1:1 mapping** — one MCP tool per API endpoint. No composite or "smart" tools in Phase 1.
+- **Stateless** — all state lives in the BRAIN 3.0 database. Nothing stored locally.
+- **Descriptions for Claude** — tool descriptions are written as guidance for a partner, not dry API docs.
+- **Fail clearly** — three error paths (API error passthrough, API unreachable, invalid input) each return a meaningful message.
 
 ## Related
 
