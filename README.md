@@ -6,7 +6,7 @@ MCP (Model Context Protocol) server that gives Claude full access to the BRAIN 3
 
 - Python 3.12+
 - BRAIN 3.0 API running (default: `http://localhost:8000`)
-- Compatible with: brain3 v1.1.0+
+- Compatible with: brain3 v1.2.0+
 
 ## Installation
 
@@ -73,9 +73,9 @@ Add to your Claude Code settings or project `.mcp.json`:
 }
 ```
 
-## Available Tools (53)
+## Available Tools (109)
 
-### Health Check
+### Health Check (1)
 | Tool | Description |
 |------|-------------|
 | `health_check` | Verify API connectivity and database status |
@@ -107,7 +107,7 @@ Add to your Claude Code settings or project `.mcp.json`:
 | `update_project` | Update project details |
 | `delete_project` | Delete a project |
 
-### Tasks (5)
+### Tasks (9)
 | Tool | Description |
 |------|-------------|
 | `create_task` | Create a task with ADHD-aware metadata |
@@ -115,8 +115,12 @@ Add to your Claude Code settings or project `.mcp.json`:
 | `get_task` | Get task with tags |
 | `update_task` | Update task details or status |
 | `delete_task` | Delete a task |
+| `tag_task` | Attach a tag to a task |
+| `untag_task` | Remove a tag from a task |
+| `list_task_tags` | List tags on a task |
+| `list_tagged_tasks` | List tasks with a specific tag |
 
-### Tags (13)
+### Tags (5)
 | Tool | Description |
 |------|-------------|
 | `create_tag` | Create a tag (get-or-create semantics) |
@@ -124,14 +128,6 @@ Add to your Claude Code settings or project `.mcp.json`:
 | `get_tag` | Get a tag |
 | `update_tag` | Update tag name or color |
 | `delete_tag` | Delete a tag |
-| `tag_task` | Attach a tag to a task |
-| `untag_task` | Remove a tag from a task |
-| `list_task_tags` | List tags on a task |
-| `list_tagged_tasks` | List tasks with a specific tag |
-| `tag_activity` | Attach a tag to an activity log entry |
-| `untag_activity` | Remove a tag from an activity log entry |
-| `list_activity_tags` | List tags on an activity log entry |
-| `list_tagged_activities` | List activity entries with a specific tag |
 
 ### Routines (9)
 | Tool | Description |
@@ -155,14 +151,18 @@ Add to your Claude Code settings or project `.mcp.json`:
 | `update_checkin` | Update check-in details |
 | `delete_checkin` | Delete a check-in |
 
-### Activity Log (5)
+### Activity Log (9)
 | Tool | Description |
 |------|-------------|
-| `log_activity` | Record what happened and how it felt (optional tag_ids for tagging at creation) |
+| `log_activity` | Record what happened and how it felt (optional tag_ids) |
 | `list_activity` | List activity (filter by type, task, routine, dates, tags) |
 | `get_activity` | Get activity entry with resolved references |
 | `update_activity` | Update an activity entry |
 | `delete_activity` | Delete an activity entry |
+| `tag_activity` | Attach a tag to an activity entry |
+| `untag_activity` | Remove a tag from an activity entry |
+| `list_activity_tags` | List tags on an activity entry |
+| `list_tagged_activities` | List activity entries with a specific tag |
 
 ### Reports (4)
 | Tool | Description |
@@ -171,6 +171,78 @@ Add to your Claude Code settings or project `.mcp.json`:
 | `get_domain_balance` | Per-domain item counts and recency |
 | `get_routine_adherence` | Completion rates and streak health |
 | `get_friction_analysis` | Predicted vs actual friction patterns |
+
+### Artifacts (8)
+| Tool | Description |
+|------|-------------|
+| `create_artifact` | Store a reference document (CLAUDE.md, briefs, templates, etc.) |
+| `get_artifact` | Retrieve a document with full content |
+| `list_artifacts` | Browse documents by type, tags, seedability, or search |
+| `update_artifact` | Update a document (auto-increments version) |
+| `delete_artifact` | Remove a document |
+| `tag_artifact` | Tag a document |
+| `untag_artifact` | Remove a tag from a document |
+| `list_artifact_tags` | List tags on a document |
+
+### Protocols (8)
+| Tool | Description |
+|------|-------------|
+| `create_protocol` | Define a step-by-step procedure |
+| `get_protocol` | Load a protocol with steps and linked artifact |
+| `list_protocols` | Browse available protocols |
+| `update_protocol` | Modify a protocol (auto-increments version) |
+| `delete_protocol` | Remove a protocol |
+| `tag_protocol` | Tag a protocol |
+| `untag_protocol` | Remove a tag from a protocol |
+| `list_protocol_tags` | List tags on a protocol |
+
+### Directives (9)
+| Tool | Description |
+|------|-------------|
+| `create_directive` | Define a behavioral rule or guardrail |
+| `get_directive` | Read a specific directive |
+| `list_directives` | Browse directives (scope, priority, tag filters) |
+| `update_directive` | Modify a directive |
+| `delete_directive` | Remove a directive |
+| `resolve_directives` | Get merged directive set for a skill + agent context |
+| `tag_directive` | Tag a directive |
+| `untag_directive` | Remove a tag from a directive |
+| `list_directive_tags` | List tags on a directive |
+
+### Skills (15)
+| Tool | Description |
+|------|-------------|
+| `create_skill` | Define an operating mode with linked entities |
+| `get_skill` | Get a skill with relationships |
+| `get_skill_full` | **Bootstrap tool** — load complete skill context |
+| `list_skills` | Browse available operating modes |
+| `update_skill` | Modify a skill's properties |
+| `delete_skill` | Remove a skill |
+| `list_skill_domains` | List domains linked to a skill |
+| `link_skill_domain` | Associate a domain with a skill |
+| `unlink_skill_domain` | Remove domain association |
+| `list_skill_protocols` | List protocols linked to a skill |
+| `link_skill_protocol` | Associate a protocol with a skill |
+| `unlink_skill_protocol` | Remove protocol association |
+| `list_skill_directives` | List directives linked to a skill |
+| `link_skill_directive` | Associate a directive with a skill |
+| `unlink_skill_directive` | Remove directive association |
+
+### Batch Operations (12)
+| Tool | Description |
+|------|-------------|
+| `batch_create_tasks` | Create multiple tasks atomically (max 100) |
+| `batch_create_activity` | Log multiple activities atomically (max 100) |
+| `batch_create_artifacts` | Store multiple documents atomically (max 100) |
+| `batch_create_protocols` | Create multiple protocols atomically (max 100) |
+| `batch_create_directives` | Create multiple directives atomically (max 100) |
+| `batch_create_skills` | Create multiple skills atomically (max 100) |
+| `batch_tag_task` | Attach multiple tags to a task at once |
+| `batch_tag_activity` | Attach multiple tags to an activity at once |
+| `batch_tag_artifact` | Attach multiple tags to an artifact at once |
+| `list_tagged_artifacts` | Find all artifacts with a specific tag |
+| `list_tagged_protocols` | Find all protocols with a specific tag |
+| `list_tagged_directives` | Find all directives with a specific tag |
 
 ## Troubleshooting
 
