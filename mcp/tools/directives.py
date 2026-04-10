@@ -164,3 +164,9 @@ def register(mcp, api) -> None:
         """List tags on a directive."""
         validate_uuid(directive_id, "directive_id")
         return await api.get(f"/api/directives/{directive_id}/tags")
+
+    @mcp.tool()
+    async def list_tagged_directives(tag_id: str) -> list:
+        """Find all directives with a specific tag."""
+        validate_uuid(tag_id, "tag_id")
+        return await api.get(f"/api/tags/{tag_id}/directives")

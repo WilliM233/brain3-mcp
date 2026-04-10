@@ -172,7 +172,7 @@ Add to your Claude Code settings or project `.mcp.json`:
 | `get_routine_adherence` | Completion rates and streak health |
 | `get_friction_analysis` | Predicted vs actual friction patterns |
 
-### Artifacts (8)
+### Artifacts (9)
 | Tool | Description |
 |------|-------------|
 | `create_artifact` | Store a reference document (CLAUDE.md, briefs, templates, etc.) |
@@ -183,8 +183,9 @@ Add to your Claude Code settings or project `.mcp.json`:
 | `tag_artifact` | Tag a document |
 | `untag_artifact` | Remove a tag from a document |
 | `list_artifact_tags` | List tags on a document |
+| `list_tagged_artifacts` | Find all artifacts with a specific tag |
 
-### Protocols (8)
+### Protocols (9)
 | Tool | Description |
 |------|-------------|
 | `create_protocol` | Define a step-by-step procedure |
@@ -195,8 +196,9 @@ Add to your Claude Code settings or project `.mcp.json`:
 | `tag_protocol` | Tag a protocol |
 | `untag_protocol` | Remove a tag from a protocol |
 | `list_protocol_tags` | List tags on a protocol |
+| `list_tagged_protocols` | Find all protocols with a specific tag |
 
-### Directives (9)
+### Directives (10)
 | Tool | Description |
 |------|-------------|
 | `create_directive` | Define a behavioral rule or guardrail |
@@ -208,6 +210,7 @@ Add to your Claude Code settings or project `.mcp.json`:
 | `tag_directive` | Tag a directive |
 | `untag_directive` | Remove a tag from a directive |
 | `list_directive_tags` | List tags on a directive |
+| `list_tagged_directives` | Find all directives with a specific tag |
 
 ### Skills (15)
 | Tool | Description |
@@ -228,7 +231,7 @@ Add to your Claude Code settings or project `.mcp.json`:
 | `link_skill_directive` | Associate a directive with a skill |
 | `unlink_skill_directive` | Remove directive association |
 
-### Batch Operations (12)
+### Batch Operations (9)
 | Tool | Description |
 |------|-------------|
 | `batch_create_tasks` | Create multiple tasks atomically (max 100) |
@@ -240,9 +243,6 @@ Add to your Claude Code settings or project `.mcp.json`:
 | `batch_tag_task` | Attach multiple tags to a task at once |
 | `batch_tag_activity` | Attach multiple tags to an activity at once |
 | `batch_tag_artifact` | Attach multiple tags to an artifact at once |
-| `list_tagged_artifacts` | Find all artifacts with a specific tag |
-| `list_tagged_protocols` | Find all protocols with a specific tag |
-| `list_tagged_directives` | Find all directives with a specific tag |
 
 ## Troubleshooting
 

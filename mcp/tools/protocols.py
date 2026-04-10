@@ -118,3 +118,9 @@ def register(mcp, api) -> None:
         """List tags on a protocol."""
         validate_uuid(protocol_id, "protocol_id")
         return await api.get(f"/api/protocols/{protocol_id}/tags")
+
+    @mcp.tool()
+    async def list_tagged_protocols(tag_id: str) -> list:
+        """Find all protocols with a specific tag."""
+        validate_uuid(tag_id, "tag_id")
+        return await api.get(f"/api/tags/{tag_id}/protocols")
