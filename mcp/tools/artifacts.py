@@ -136,3 +136,9 @@ def register(mcp, api) -> None:
         """See which tags are on a document."""
         validate_uuid(artifact_id, "artifact_id")
         return await api.get(f"/api/artifacts/{artifact_id}/tags")
+
+    @mcp.tool()
+    async def list_tagged_artifacts(tag_id: str) -> list:
+        """Find all artifacts with a specific tag."""
+        validate_uuid(tag_id, "tag_id")
+        return await api.get(f"/api/tags/{tag_id}/artifacts")
