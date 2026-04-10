@@ -31,6 +31,10 @@ ACTION_TYPES = {
 DAYS_OF_WEEK = {
     "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday",
 }
+ARTIFACT_TYPES = {
+    "document", "protocol", "brief", "prompt", "template", "journal", "spec",
+}
+DIRECTIVE_SCOPES = {"global", "skill", "agent"}
 
 
 # ---------------------------------------------------------------------------

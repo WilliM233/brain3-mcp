@@ -13,6 +13,11 @@ from tools.routines import register as register_routines
 from tools.checkins import register as register_checkins
 from tools.activity import register as register_activity
 from tools.reports import register as register_reports
+from tools.artifacts import register as register_artifacts
+from tools.protocols import register as register_protocols
+from tools.directives import register as register_directives
+from tools.skills import register as register_skills
+from tools.batch import register as register_batch
 
 
 def register_all(mcp, api) -> None:
@@ -26,3 +31,8 @@ def register_all(mcp, api) -> None:
     register_checkins(mcp, api)
     register_activity(mcp, api)
     register_reports(mcp, api)
+    register_artifacts(mcp, api)
+    register_protocols(mcp, api)
+    register_directives(mcp, api)
+    register_skills(mcp, api)
+    register_batch(mcp, api)
