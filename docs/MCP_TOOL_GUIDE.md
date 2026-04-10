@@ -1,7 +1,7 @@
-# MCP Tool Guide — BRAIN 3.0 v1.0.0
+# MCP Tool Guide — BRAIN 3.0 v1.2.0
 
-**Version:** 1.0.0
-**Date:** 2026-03-29
+**Version:** 1.2.0
+**Date:** 2026-04-10
 **Writer:** Apollo Swagger (API Documentation Agent)
 **Audience:** Claude (primary), developers building on or maintaining the MCP layer
 
@@ -9,7 +9,7 @@
 
 ## Overview
 
-The BRAIN 3.0 MCP server exposes **53 tools** that map 1:1 to the BRAIN 3.0 REST API. Every API endpoint has exactly one corresponding MCP tool. Claude uses these tools to read and write the user's task, routine, goal, and activity data through natural conversation.
+The BRAIN 3.0 MCP server exposes **109 tools** that map 1:1 to the BRAIN 3.0 REST API. Every API endpoint has exactly one corresponding MCP tool. Claude uses these tools to read and write the user's task, routine, goal, activity, artifact, protocol, directive, and skill data through natural conversation.
 
 **Architecture:**
 
@@ -42,6 +42,11 @@ The MCP server is **stateless** — all state lives in the BRAIN 3.0 database. T
   - [Check-ins](#check-ins)
   - [Activity Log](#activity-log)
   - [Reports](#reports)
+  - [Artifacts](#artifacts)
+  - [Protocols](#protocols)
+  - [Directives](#directives)
+  - [Skills](#skills)
+  - [Batch Operations](#batch-operations)
 - [Tool-to-Endpoint Mapping](#tool-to-endpoint-mapping)
 - [Composable Query Patterns — Cookbook](#composable-query-patterns--cookbook)
 - [Integration Guide](#integration-guide)
@@ -994,6 +999,7 @@ The activity log records what happened and how the user felt about it. Each entr
 | `mood_rating` | integer | No | `null` | Mood during the activity (1-5) |
 | `friction_actual` | integer | No | `null` | Actual friction experienced (1-5) — compare with predicted `activation_friction` |
 | `duration_minutes` | integer | No | `null` | How long it took |
+| `tag_ids` | list[string] | No | `null` | Tag IDs to attach at creation. Saves separate `tag_activity` calls. |
 
 **Example — log completing a task:**
 
@@ -1044,6 +1050,7 @@ log_activity(
 | `logged_before` | string | No | `null` | ISO datetime |
 | `has_task` | boolean | No | `null` | `true` = only entries linked to a task |
 | `has_routine` | boolean | No | `null` | `true` = only entries linked to a routine |
+| `tag` | string | No | `null` | Comma-separated tag names. Entries must have **all** listed tags (AND logic). |
 
 **Example — today's completed activities:**
 
@@ -1093,6 +1100,59 @@ list_activity(action_type="completed", logged_after="2026-03-29T00:00:00")
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
 | `entry_id` | string (UUID) | **Yes** | — | The entry to delete |
+
+#### `tag_activity`
+
+| | |
+|---|---|
+| **Maps to** | `POST /api/activity/{activity_id}/tags/{tag_id}` |
+| **Description** | Attach a tag to an activity log entry. Idempotent — calling again with the same tag has no effect. Use to categorize entries for filtering and discovery (e.g., session-handoff notes, media reviews). |
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `activity_id` | string (UUID) | **Yes** | — | The activity entry to tag |
+| `tag_id` | string (UUID) | **Yes** | — | The tag to attach |
+
+#### `untag_activity`
+
+| | |
+|---|---|
+| **Maps to** | `DELETE /api/activity/{activity_id}/tags/{tag_id}` |
+| **Description** | Remove a tag from an activity log entry. |
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `activity_id` | string (UUID) | **Yes** | — | The activity entry |
+| `tag_id` | string (UUID) | **Yes** | — | The tag to remove |
+
+#### `list_activity_tags`
+
+| | |
+|---|---|
+| **Maps to** | `GET /api/activity/{activity_id}/tags` |
+| **Description** | List all tags attached to an activity log entry. |
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `activity_id` | string (UUID) | **Yes** | — | The activity entry |
+
+#### `list_tagged_activities`
+
+| | |
+|---|---|
+| **Maps to** | `GET /api/tags/{tag_id}/activities` |
+| **Description** | List all activity log entries that have a specific tag. Use to find all entries in a category (e.g., all entries tagged "session-handoff" for context recovery, or "fluxnook" for media reviews). |
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `tag_id` | string (UUID) | **Yes** | — | The tag to search by |
+
+**Example — find session handoff notes:**
+
+```json
+tag = list_tags(search="session-handoff")
+entries = list_tagged_activities(tag_id=tag[0]["id"])
+```
 
 ---
 
@@ -1280,9 +1340,875 @@ get_friction_analysis()
 
 ---
 
+### Artifacts
+
+Persistent documents stored in BRAIN -- CLAUDE.md files, design docs, briefs, prompts, templates, journals, specs. Artifacts support hierarchical organization via `parent_id`, tagging, and automatic versioning on content changes.
+
+#### `create_artifact`
+
+| | |
+|---|---|
+| **Maps to** | `POST /api/artifacts` |
+| **Description** | Store a reference document in BRAIN. Use for CLAUDE.md files, design docs, briefs, templates, prompts -- anything that needs to persist beyond a conversation. Supports inline tagging via tag_ids. |
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `title` | string | **Yes** | — | Artifact title (max 200 chars) |
+| `artifact_type` | string | **Yes** | — | One of: `document`, `protocol`, `brief`, `prompt`, `template`, `journal`, `spec` |
+| `content` | string | No | `null` | Document body (max 500,000 chars / 512 KB UTF-8) |
+| `parent_id` | string (UUID) | No | `null` | Parent artifact for hierarchy |
+| `is_seedable` | boolean | No | `false` | Whether usable in seed scripts |
+| `tag_ids` | list[string] | No | `null` | Tag IDs to attach at creation |
+
+**Example call:**
+
+```json
+create_artifact(
+  title="Session Startup Protocol",
+  artifact_type="protocol",
+  content="1. Load skill context\n2. Check pending tasks\n3. Review recent activity",
+  is_seedable=true
+)
+```
+
+**Example response:**
+
+```json
+{
+  "id": "b2c3d4e5-...",
+  "title": "Session Startup Protocol",
+  "artifact_type": "protocol",
+  "content_size": 78,
+  "version": 1,
+  "parent_id": null,
+  "is_seedable": true,
+  "created_at": "2026-04-01T12:00:00",
+  "updated_at": "2026-04-01T12:00:00",
+  "tags": []
+}
+```
+
+#### `get_artifact`
+
+| | |
+|---|---|
+| **Maps to** | `GET /api/artifacts/{artifact_id}` |
+| **Description** | Retrieve a stored document with full content and resolved parent. Use when you need to read a specific artifact's content. |
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `artifact_id` | string (UUID) | **Yes** | — | The artifact to retrieve |
+
+#### `list_artifacts`
+
+| | |
+|---|---|
+| **Maps to** | `GET /api/artifacts` |
+| **Description** | Browse stored documents by type, tags, seedability, or search. Returns metadata only (no content) -- use `get_artifact` to read specific ones. |
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `artifact_type` | string | No | `null` | Filter by type |
+| `is_seedable` | boolean | No | `null` | Filter by seedable status |
+| `search` | string | No | `null` | Case-insensitive title search |
+| `parent_id` | string (UUID) | No | `null` | Filter to children of a specific artifact |
+| `tag` | string | No | `null` | Comma-separated tag names (AND logic) |
+
+**Example — find CLAUDE.md files:**
+
+```json
+list_artifacts(tag="claude-md")
+```
+
+#### `update_artifact`
+
+| | |
+|---|---|
+| **Maps to** | `PATCH /api/artifacts/{artifact_id}` |
+| **Description** | Update a stored document. Content changes auto-increment the version number and recompute content_size. Only provided fields are changed. |
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `artifact_id` | string (UUID) | **Yes** | — | The artifact to update |
+| `title` | string | No | `null` | New title (max 200) |
+| `artifact_type` | string | No | `null` | New type |
+| `content` | string | No | `null` | New content (max 500,000 chars / 512 KB) |
+| `parent_id` | string (UUID) | No | `null` | New parent |
+| `is_seedable` | boolean | No | `null` | New seedable flag |
+
+#### `delete_artifact`
+
+| | |
+|---|---|
+| **Maps to** | `DELETE /api/artifacts/{artifact_id}` |
+| **Description** | Remove a stored document from BRAIN. Children get `parent_id` set to NULL (not cascade deleted). |
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `artifact_id` | string (UUID) | **Yes** | — | The artifact to delete |
+
+#### `tag_artifact`
+
+| | |
+|---|---|
+| **Maps to** | `POST /api/artifacts/{artifact_id}/tags/{tag_id}` |
+| **Description** | Tag a document for categorization. Idempotent. |
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `artifact_id` | string (UUID) | **Yes** | — | The artifact to tag |
+| `tag_id` | string (UUID) | **Yes** | — | The tag to attach |
+
+#### `untag_artifact`
+
+| | |
+|---|---|
+| **Maps to** | `DELETE /api/artifacts/{artifact_id}/tags/{tag_id}` |
+| **Description** | Remove a tag from a document. |
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `artifact_id` | string (UUID) | **Yes** | — | The artifact |
+| `tag_id` | string (UUID) | **Yes** | — | The tag to remove |
+
+#### `list_artifact_tags`
+
+| | |
+|---|---|
+| **Maps to** | `GET /api/artifacts/{artifact_id}/tags` |
+| **Description** | See which tags are on a document. |
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `artifact_id` | string (UUID) | **Yes** | — | The artifact |
+
+#### `list_tagged_artifacts`
+
+| | |
+|---|---|
+| **Maps to** | `GET /api/tags/{tag_id}/artifacts` |
+| **Description** | Find all artifacts with a specific tag. |
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `tag_id` | string (UUID) | **Yes** | — | The tag to search by |
+
+---
+
+### Protocols
+
+Step-by-step procedures for repeatable workflows -- session startup sequences, bug triage flows, release processes. Protocols have ordered steps, optional artifact links, and automatic versioning.
+
+#### `create_protocol`
+
+| | |
+|---|---|
+| **Maps to** | `POST /api/protocols` |
+| **Description** | Define a new step-by-step procedure. Use for repeatable workflows like session startup, bug handling, release processes. Name must be unique. |
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `name` | string | **Yes** | — | Protocol name (max 100, unique) |
+| `description` | string | No | `null` | What this protocol is for (max 5000) |
+| `steps` | list[dict] | No | `null` | Ordered steps (max 50). Each: `{order: int, title: str, instruction: str, is_optional: bool}` |
+| `artifact_id` | string (UUID) | No | `null` | Linked reference document |
+| `is_seedable` | boolean | No | `true` | Whether usable in seed scripts |
+| `tag_ids` | list[string] | No | `null` | Tag IDs to attach at creation |
+
+**Example call:**
+
+```json
+create_protocol(
+  name="session-startup",
+  description="Standard agent initialization sequence",
+  steps=[
+    {"order": 1, "title": "Load skill", "instruction": "Call get_skill_full with the assigned skill ID", "is_optional": false},
+    {"order": 2, "title": "Check context", "instruction": "Review recent activity for session continuity", "is_optional": false},
+    {"order": 3, "title": "Greet user", "instruction": "Acknowledge what was last worked on", "is_optional": true}
+  ]
+)
+```
+
+**Example response:**
+
+```json
+{
+  "id": "c3d4e5f6-...",
+  "name": "session-startup",
+  "description": "Standard agent initialization sequence",
+  "steps": [
+    {"order": 1, "title": "Load skill", "instruction": "Call get_skill_full with the assigned skill ID", "is_optional": false},
+    {"order": 2, "title": "Check context", "instruction": "Review recent activity for session continuity", "is_optional": false},
+    {"order": 3, "title": "Greet user", "instruction": "Acknowledge what was last worked on", "is_optional": true}
+  ],
+  "artifact_id": null,
+  "is_seedable": true,
+  "version": 1,
+  "tags": []
+}
+```
+
+#### `get_protocol`
+
+| | |
+|---|---|
+| **Maps to** | `GET /api/protocols/{protocol_id}` |
+| **Description** | Load a specific protocol with its steps and linked artifact details. |
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `protocol_id` | string (UUID) | **Yes** | — | The protocol to retrieve |
+
+#### `list_protocols`
+
+| | |
+|---|---|
+| **Maps to** | `GET /api/protocols` |
+| **Description** | Browse available protocols. Use at session start to see what procedures are defined. |
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `search` | string | No | `null` | Case-insensitive name search |
+| `is_seedable` | boolean | No | `null` | Filter by seedable status |
+| `has_artifact` | boolean | No | `null` | Filter by whether artifact is linked |
+| `tag` | string | No | `null` | Comma-separated tag names (AND logic) |
+
+#### `update_protocol`
+
+| | |
+|---|---|
+| **Maps to** | `PATCH /api/protocols/{protocol_id}` |
+| **Description** | Modify a protocol -- update steps, description, or linked artifact. Version auto-increments on steps or description changes. Name uniqueness enforced. |
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `protocol_id` | string (UUID) | **Yes** | — | The protocol to update |
+| `name` | string | No | `null` | New name (max 100, unique) |
+| `description` | string | No | `null` | New description (max 5000) |
+| `steps` | list[dict] | No | `null` | New steps (max 50) |
+| `artifact_id` | string (UUID) | No | `null` | New linked artifact |
+| `is_seedable` | boolean | No | `null` | New seedable flag |
+
+#### `delete_protocol`
+
+| | |
+|---|---|
+| **Maps to** | `DELETE /api/protocols/{protocol_id}` |
+| **Description** | Remove a protocol from BRAIN. |
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `protocol_id` | string (UUID) | **Yes** | — | The protocol to delete |
+
+#### `tag_protocol`
+
+| | |
+|---|---|
+| **Maps to** | `POST /api/protocols/{protocol_id}/tags/{tag_id}` |
+| **Description** | Tag a protocol. Idempotent. |
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `protocol_id` | string (UUID) | **Yes** | — | The protocol to tag |
+| `tag_id` | string (UUID) | **Yes** | — | The tag to attach |
+
+#### `untag_protocol`
+
+| | |
+|---|---|
+| **Maps to** | `DELETE /api/protocols/{protocol_id}/tags/{tag_id}` |
+| **Description** | Remove a tag from a protocol. |
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `protocol_id` | string (UUID) | **Yes** | — | The protocol |
+| `tag_id` | string (UUID) | **Yes** | — | The tag to remove |
+
+#### `list_protocol_tags`
+
+| | |
+|---|---|
+| **Maps to** | `GET /api/protocols/{protocol_id}/tags` |
+| **Description** | List tags on a protocol. |
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `protocol_id` | string (UUID) | **Yes** | — | The protocol |
+
+#### `list_tagged_protocols`
+
+| | |
+|---|---|
+| **Maps to** | `GET /api/tags/{tag_id}/protocols` |
+| **Description** | Find all protocols with a specific tag. |
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `tag_id` | string (UUID) | **Yes** | — | The tag to search by |
+
+---
+
+### Directives
+
+Behavioral rules and guardrails scoped to global, skill, or agent contexts. Directives carry a priority (1-10) and are resolved at session start to build the agent's operating constraints.
+
+**Scope model:**
+- `global` — applies to all agents, all contexts. `scope_ref` must be null.
+- `skill` — applies when a specific skill is loaded. `scope_ref` is the skill ID.
+- `agent` — applies to a specific agent identity. `scope_ref` is the agent project ID.
+
+#### `create_directive`
+
+| | |
+|---|---|
+| **Maps to** | `POST /api/directives` |
+| **Description** | Define a behavioral rule or guardrail. Scope it as global (always applies), skill-specific, or agent-specific. Global directives must NOT have a scope_ref. Skill/agent directives require one. |
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `name` | string | **Yes** | — | Directive name (max 200) |
+| `content` | string | **Yes** | — | The rule or guardrail text (max 10,000) |
+| `scope` | string | **Yes** | — | One of: `global`, `skill`, `agent` |
+| `scope_ref` | string (UUID) | Conditional | `null` | Required for skill/agent scope. Must be null for global. |
+| `priority` | integer | No | `5` | Importance (1-10, higher = more important) |
+| `is_seedable` | boolean | No | `true` | Whether usable in seed scripts |
+| `tag_ids` | list[string] | No | `null` | Tag IDs to attach at creation |
+
+**Example call:**
+
+```json
+create_directive(
+  name="No silent assumptions",
+  content="When a spec is ambiguous, stop and ask a focused question. Do not guess and proceed.",
+  scope="global",
+  priority=9
+)
+```
+
+**Example response:**
+
+```json
+{
+  "id": "d4e5f6a7-...",
+  "name": "No silent assumptions",
+  "content": "When a spec is ambiguous, stop and ask a focused question...",
+  "scope": "global",
+  "scope_ref": null,
+  "priority": 9,
+  "is_seedable": true,
+  "tags": []
+}
+```
+
+#### `get_directive`
+
+| | |
+|---|---|
+| **Maps to** | `GET /api/directives/{directive_id}` |
+| **Description** | Read a specific directive. |
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `directive_id` | string (UUID) | **Yes** | — | The directive to retrieve |
+
+#### `list_directives`
+
+| | |
+|---|---|
+| **Maps to** | `GET /api/directives` |
+| **Description** | Browse directives with scope, priority, and tag filters. |
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `scope` | string | No | `null` | Filter: `global`, `skill`, `agent` |
+| `scope_ref` | string (UUID) | No | `null` | Filter by scope reference |
+| `is_seedable` | boolean | No | `null` | Filter by seedable status |
+| `priority_min` | integer | No | `null` | Minimum priority (1-10) |
+| `priority_max` | integer | No | `null` | Maximum priority (1-10) |
+| `search` | string | No | `null` | Case-insensitive name search |
+| `tag` | string | No | `null` | Comma-separated tag names (AND logic) |
+
+**Example — high-priority global rules:**
+
+```json
+list_directives(scope="global", priority_min=8)
+```
+
+#### `update_directive`
+
+| | |
+|---|---|
+| **Maps to** | `PATCH /api/directives/{directive_id}` |
+| **Description** | Modify a directive. API validates scope/scope_ref constraints after merge. Only provided fields are changed. |
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `directive_id` | string (UUID) | **Yes** | — | The directive to update |
+| `name` | string | No | `null` | New name (max 200) |
+| `content` | string | No | `null` | New content (max 10,000) |
+| `scope` | string | No | `null` | New scope |
+| `scope_ref` | string (UUID) | No | `null` | New scope reference |
+| `priority` | integer | No | `null` | New priority (1-10) |
+| `is_seedable` | boolean | No | `null` | New seedable flag |
+
+#### `delete_directive`
+
+| | |
+|---|---|
+| **Maps to** | `DELETE /api/directives/{directive_id}` |
+| **Description** | Remove a directive. |
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `directive_id` | string (UUID) | **Yes** | — | The directive to delete |
+
+#### `resolve_directives`
+
+| | |
+|---|---|
+| **Maps to** | `GET /api/directives/resolve` |
+| **Description** | Get the merged directive set for a skill + optional agent context. Returns global + skill + agent directives grouped and sorted by priority. **Use this at session start to load behavioral rules.** |
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `skill_id` | string (UUID) | No | `null` | Include directives scoped to this skill |
+| `scope_ref` | string (UUID) | No | `null` | Include directives scoped to this agent |
+
+**Example — load all rules for core-protocol skill:**
+
+```json
+resolve_directives(skill_id="c3d4e5f6-...")
+```
+
+**Example response:**
+
+```json
+{
+  "global_directives": [
+    {"name": "No silent assumptions", "priority": 9, "...": "..."},
+    {"name": "Log issues, don't fix inline", "priority": 7, "...": "..."}
+  ],
+  "skill_directives": [
+    {"name": "Document reality not intent", "priority": 8, "...": "..."}
+  ],
+  "agent_directives": []
+}
+```
+
+#### `tag_directive`
+
+| | |
+|---|---|
+| **Maps to** | `POST /api/directives/{directive_id}/tags/{tag_id}` |
+| **Description** | Tag a directive. Idempotent. |
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `directive_id` | string (UUID) | **Yes** | — | The directive to tag |
+| `tag_id` | string (UUID) | **Yes** | — | The tag to attach |
+
+#### `untag_directive`
+
+| | |
+|---|---|
+| **Maps to** | `DELETE /api/directives/{directive_id}/tags/{tag_id}` |
+| **Description** | Remove a tag from a directive. |
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `directive_id` | string (UUID) | **Yes** | — | The directive |
+| `tag_id` | string (UUID) | **Yes** | — | The tag to remove |
+
+#### `list_directive_tags`
+
+| | |
+|---|---|
+| **Maps to** | `GET /api/directives/{directive_id}/tags` |
+| **Description** | List tags on a directive. |
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `directive_id` | string (UUID) | **Yes** | — | The directive |
+
+#### `list_tagged_directives`
+
+| | |
+|---|---|
+| **Maps to** | `GET /api/tags/{tag_id}/directives` |
+| **Description** | Find all directives with a specific tag. |
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `tag_id` | string (UUID) | **Yes** | — | The tag to search by |
+
+---
+
+### Skills
+
+Operating modes that bundle domains, protocols, and directives into loadable contexts. A skill defines how an agent behaves -- which life areas it works with, what procedures it follows, and what rules constrain it.
+
+#### `create_skill`
+
+| | |
+|---|---|
+| **Maps to** | `POST /api/skills` |
+| **Description** | Define a new operating mode with linked domains, protocols, and directives. Supports bulk linking at creation. Name must be unique. At most one skill can be the default. |
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `name` | string | **Yes** | — | Skill name (max 100, unique) |
+| `description` | string | No | `null` | What this skill is for (max 5000) |
+| `adhd_patterns` | string | No | `null` | ADHD-specific behavioral guidance (max 10,000) |
+| `artifact_id` | string (UUID) | No | `null` | Linked reference document |
+| `is_seedable` | boolean | No | `true` | Whether usable in seed scripts |
+| `is_default` | boolean | No | `false` | Whether this is the default skill (at most one) |
+| `domain_ids` | list[string] | No | `null` | Domain UUIDs to link at creation |
+| `protocol_ids` | list[string] | No | `null` | Protocol UUIDs to link at creation |
+| `directive_ids` | list[string] | No | `null` | Directive UUIDs to link at creation |
+
+**Example call:**
+
+```json
+create_skill(
+  name="core-protocol",
+  description="Default operating mode for all BRAIN agents",
+  is_default=true,
+  domain_ids=["a1b2c3d4-..."],
+  protocol_ids=["c3d4e5f6-..."]
+)
+```
+
+#### `get_skill`
+
+| | |
+|---|---|
+| **Maps to** | `GET /api/skills/{skill_id}` |
+| **Description** | Get a skill with its linked relationships (domains, protocols, directives). |
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `skill_id` | string (UUID) | **Yes** | — | The skill to retrieve |
+
+#### `get_skill_full`
+
+| | |
+|---|---|
+| **Maps to** | `GET /api/skills/{skill_id}/full` |
+| **Description** | **Primary bootstrap tool.** Load complete skill context. Returns resolved protocols, grouped directives (global + skill-scoped sorted by priority), domains, and linked artifact. Call this at session start to load your operating context. |
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `skill_id` | string (UUID) | **Yes** | — | The skill to bootstrap |
+
+**Example call:**
+
+```json
+get_skill_full(skill_id="c3d4e5f6-...")
+```
+
+**Example response:**
+
+```json
+{
+  "id": "c3d4e5f6-...",
+  "name": "core-protocol",
+  "description": "Default operating mode for all BRAIN agents",
+  "adhd_patterns": null,
+  "is_seedable": true,
+  "is_default": true,
+  "artifact": null,
+  "domains": [{"id": "...", "name": "Engineering"}],
+  "protocols": [{"id": "...", "name": "session-startup", "steps": [...]}],
+  "directives": {
+    "global_directives": [
+      {"name": "No silent assumptions", "priority": 9},
+      {"name": "Log issues, don't fix inline", "priority": 7}
+    ],
+    "skill": [
+      {"name": "Document reality not intent", "priority": 8}
+    ]
+  }
+}
+```
+
+#### `list_skills`
+
+| | |
+|---|---|
+| **Maps to** | `GET /api/skills` |
+| **Description** | Browse available operating modes. Filter by name, seedability, default status, or linked domain. |
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `search` | string | No | `null` | Case-insensitive name search |
+| `is_seedable` | boolean | No | `null` | Filter by seedable status |
+| `is_default` | boolean | No | `null` | Filter by default status |
+| `domain_id` | string (UUID) | No | `null` | Filter to skills linked to this domain |
+
+#### `update_skill`
+
+| | |
+|---|---|
+| **Maps to** | `PATCH /api/skills/{skill_id}` |
+| **Description** | Modify a skill's properties. Use link/unlink tools for relationship changes. Only provided fields are changed. |
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `skill_id` | string (UUID) | **Yes** | — | The skill to update |
+| `name` | string | No | `null` | New name (max 100, unique) |
+| `description` | string | No | `null` | New description (max 5000) |
+| `adhd_patterns` | string | No | `null` | New ADHD guidance (max 10,000) |
+| `artifact_id` | string (UUID) | No | `null` | New linked artifact |
+| `is_seedable` | boolean | No | `null` | New seedable flag |
+| `is_default` | boolean | No | `null` | New default flag (at most one skill) |
+
+#### `delete_skill`
+
+| | |
+|---|---|
+| **Maps to** | `DELETE /api/skills/{skill_id}` |
+| **Description** | Remove a skill and its join-table entries. |
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `skill_id` | string (UUID) | **Yes** | — | The skill to delete |
+
+#### `list_skill_domains`
+
+| | |
+|---|---|
+| **Maps to** | `GET /api/skills/{skill_id}/domains` |
+| **Description** | List all domains linked to a skill. |
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `skill_id` | string (UUID) | **Yes** | — | The skill |
+
+#### `link_skill_domain`
+
+| | |
+|---|---|
+| **Maps to** | `POST /api/skills/{skill_id}/domains/{domain_id}` |
+| **Description** | Associate a domain with a skill. Idempotent. |
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `skill_id` | string (UUID) | **Yes** | — | The skill |
+| `domain_id` | string (UUID) | **Yes** | — | The domain to link |
+
+#### `unlink_skill_domain`
+
+| | |
+|---|---|
+| **Maps to** | `DELETE /api/skills/{skill_id}/domains/{domain_id}` |
+| **Description** | Remove domain association. |
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `skill_id` | string (UUID) | **Yes** | — | The skill |
+| `domain_id` | string (UUID) | **Yes** | — | The domain to unlink |
+
+#### `list_skill_protocols`
+
+| | |
+|---|---|
+| **Maps to** | `GET /api/skills/{skill_id}/protocols` |
+| **Description** | List all protocols linked to a skill. |
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `skill_id` | string (UUID) | **Yes** | — | The skill |
+
+#### `link_skill_protocol`
+
+| | |
+|---|---|
+| **Maps to** | `POST /api/skills/{skill_id}/protocols/{protocol_id}` |
+| **Description** | Associate a protocol with a skill. Idempotent. |
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `skill_id` | string (UUID) | **Yes** | — | The skill |
+| `protocol_id` | string (UUID) | **Yes** | — | The protocol to link |
+
+#### `unlink_skill_protocol`
+
+| | |
+|---|---|
+| **Maps to** | `DELETE /api/skills/{skill_id}/protocols/{protocol_id}` |
+| **Description** | Remove protocol association. |
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `skill_id` | string (UUID) | **Yes** | — | The skill |
+| `protocol_id` | string (UUID) | **Yes** | — | The protocol to unlink |
+
+#### `list_skill_directives`
+
+| | |
+|---|---|
+| **Maps to** | `GET /api/skills/{skill_id}/directives` |
+| **Description** | List all directives linked to a skill. |
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `skill_id` | string (UUID) | **Yes** | — | The skill |
+
+#### `link_skill_directive`
+
+| | |
+|---|---|
+| **Maps to** | `POST /api/skills/{skill_id}/directives/{directive_id}` |
+| **Description** | Associate a directive with a skill. Idempotent. |
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `skill_id` | string (UUID) | **Yes** | — | The skill |
+| `directive_id` | string (UUID) | **Yes** | — | The directive to link |
+
+#### `unlink_skill_directive`
+
+| | |
+|---|---|
+| **Maps to** | `DELETE /api/skills/{skill_id}/directives/{directive_id}` |
+| **Description** | Remove directive association. |
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `skill_id` | string (UUID) | **Yes** | — | The skill |
+| `directive_id` | string (UUID) | **Yes** | — | The directive to unlink |
+
+---
+
+### Batch Operations
+
+Bulk creation and tagging tools. All batch create operations are **atomic** -- all items succeed or all fail with rollback. Batch tag operations are idempotent.
+
+#### `batch_create_tasks`
+
+| | |
+|---|---|
+| **Maps to** | `POST /api/tasks/batch` |
+| **Description** | Create multiple tasks in one atomic operation. Max 100. Each item follows the `create_task` schema. |
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `items` | list[dict] | **Yes** | — | Task objects (max 100). Each follows `create_task` schema. |
+
+**Example call:**
+
+```json
+batch_create_tasks(items=[
+  {"title": "Buy groceries", "cognitive_type": "errand", "energy_cost": 2},
+  {"title": "Review PR #42", "cognitive_type": "focus_work", "energy_cost": 4}
+])
+```
+
+**Example response:**
+
+```json
+{
+  "created": [{"id": "...", "title": "Buy groceries", "..."}, {"id": "...", "title": "Review PR #42", "..."}],
+  "count": 2
+}
+```
+
+#### `batch_create_activity`
+
+| | |
+|---|---|
+| **Maps to** | `POST /api/activity/batch` |
+| **Description** | Log multiple activities at once. Max 100. Use for session recaps or batch imports. Each item follows the `log_activity` schema. |
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `items` | list[dict] | **Yes** | — | Activity objects (max 100). Each follows `log_activity` schema. |
+
+#### `batch_create_artifacts`
+
+| | |
+|---|---|
+| **Maps to** | `POST /api/artifacts/batch` |
+| **Description** | Store multiple documents at once. **Max 25** (lower limit due to potentially large content). Each item follows the `create_artifact` schema. |
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `items` | list[dict] | **Yes** | — | Artifact objects (**max 25**). Each follows `create_artifact` schema. |
+
+#### `batch_create_protocols`
+
+| | |
+|---|---|
+| **Maps to** | `POST /api/protocols/batch` |
+| **Description** | Create multiple protocols at once. Max 100. Each item follows the `create_protocol` schema. |
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `items` | list[dict] | **Yes** | — | Protocol objects (max 100). Each follows `create_protocol` schema. |
+
+#### `batch_create_directives`
+
+| | |
+|---|---|
+| **Maps to** | `POST /api/directives/batch` |
+| **Description** | Create multiple directives at once. Max 100. Each item follows the `create_directive` schema. |
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `items` | list[dict] | **Yes** | — | Directive objects (max 100). Each follows `create_directive` schema. |
+
+#### `batch_create_skills`
+
+| | |
+|---|---|
+| **Maps to** | `POST /api/skills/batch` |
+| **Description** | Create multiple skills at once. Max 100. Returns with resolved relationships. Each item follows the `create_skill` schema. |
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `items` | list[dict] | **Yes** | — | Skill objects (max 100). Each follows `create_skill` schema. |
+
+#### `batch_tag_task`
+
+| | |
+|---|---|
+| **Maps to** | `POST /api/tasks/{task_id}/tags/batch` |
+| **Description** | Attach multiple tags to a task at once. Idempotent. Max 100 tags. |
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `task_id` | string (UUID) | **Yes** | — | The task to tag |
+| `tag_ids` | list[string] | **Yes** | — | Tag UUIDs to attach (max 100) |
+
+#### `batch_tag_activity`
+
+| | |
+|---|---|
+| **Maps to** | `POST /api/activity/{activity_id}/tags/batch` |
+| **Description** | Attach multiple tags to an activity at once. Idempotent. Max 100 tags. |
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `activity_id` | string (UUID) | **Yes** | — | The activity entry to tag |
+| `tag_ids` | list[string] | **Yes** | — | Tag UUIDs to attach (max 100) |
+
+#### `batch_tag_artifact`
+
+| | |
+|---|---|
+| **Maps to** | `POST /api/artifacts/{artifact_id}/tags/batch` |
+| **Description** | Attach multiple tags to an artifact at once. Idempotent. Max 100 tags. |
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `artifact_id` | string (UUID) | **Yes** | — | The artifact to tag |
+| `tag_ids` | list[string] | **Yes** | — | Tag UUIDs to attach (max 100) |
+
+---
+
 ## Tool-to-Endpoint Mapping
 
-The following table confirms the complete 1:1 mapping between all 53 MCP tools and their API endpoints. This mapping was verified against both `mcp/server.py` and the brain3 router implementations.
+The following table confirms the complete 1:1 mapping between all 109 MCP tools and their API endpoints. This mapping was verified against both `mcp/server.py` and the brain3 router implementations.
 
 | # | MCP Tool | HTTP Method | API Endpoint |
 |---|----------|-------------|--------------|
@@ -1343,15 +2269,76 @@ The following table confirms the complete 1:1 mapping between all 53 MCP tools a
 | 47 | `get_activity` | GET | `/api/activity/{entry_id}` |
 | 48 | `update_activity` | PATCH | `/api/activity/{entry_id}` |
 | 49 | `delete_activity` | DELETE | `/api/activity/{entry_id}` |
+| 50 | `tag_activity` | POST | `/api/activity/{activity_id}/tags/{tag_id}` |
+| 51 | `untag_activity` | DELETE | `/api/activity/{activity_id}/tags/{tag_id}` |
+| 52 | `list_activity_tags` | GET | `/api/activity/{activity_id}/tags` |
+| 53 | `list_tagged_activities` | GET | `/api/tags/{tag_id}/activities` |
 | **Reports** | | | |
-| 50 | `get_activity_summary` | GET | `/api/reports/activity-summary` |
-| 51 | `get_domain_balance` | GET | `/api/reports/domain-balance` |
-| 52 | `get_routine_adherence` | GET | `/api/reports/routine-adherence` |
-| 53 | `get_friction_analysis` | GET | `/api/reports/friction-analysis` |
+| 54 | `get_activity_summary` | GET | `/api/reports/activity-summary` |
+| 55 | `get_domain_balance` | GET | `/api/reports/domain-balance` |
+| 56 | `get_routine_adherence` | GET | `/api/reports/routine-adherence` |
+| 57 | `get_friction_analysis` | GET | `/api/reports/friction-analysis` |
+| **Artifacts** | | | |
+| 58 | `create_artifact` | POST | `/api/artifacts` |
+| 59 | `get_artifact` | GET | `/api/artifacts/{artifact_id}` |
+| 60 | `list_artifacts` | GET | `/api/artifacts` |
+| 61 | `update_artifact` | PATCH | `/api/artifacts/{artifact_id}` |
+| 62 | `delete_artifact` | DELETE | `/api/artifacts/{artifact_id}` |
+| 63 | `tag_artifact` | POST | `/api/artifacts/{artifact_id}/tags/{tag_id}` |
+| 64 | `untag_artifact` | DELETE | `/api/artifacts/{artifact_id}/tags/{tag_id}` |
+| 65 | `list_artifact_tags` | GET | `/api/artifacts/{artifact_id}/tags` |
+| 66 | `list_tagged_artifacts` | GET | `/api/tags/{tag_id}/artifacts` |
+| **Protocols** | | | |
+| 67 | `create_protocol` | POST | `/api/protocols` |
+| 68 | `get_protocol` | GET | `/api/protocols/{protocol_id}` |
+| 69 | `list_protocols` | GET | `/api/protocols` |
+| 70 | `update_protocol` | PATCH | `/api/protocols/{protocol_id}` |
+| 71 | `delete_protocol` | DELETE | `/api/protocols/{protocol_id}` |
+| 72 | `tag_protocol` | POST | `/api/protocols/{protocol_id}/tags/{tag_id}` |
+| 73 | `untag_protocol` | DELETE | `/api/protocols/{protocol_id}/tags/{tag_id}` |
+| 74 | `list_protocol_tags` | GET | `/api/protocols/{protocol_id}/tags` |
+| 75 | `list_tagged_protocols` | GET | `/api/tags/{tag_id}/protocols` |
+| **Directives** | | | |
+| 76 | `create_directive` | POST | `/api/directives` |
+| 77 | `get_directive` | GET | `/api/directives/{directive_id}` |
+| 78 | `list_directives` | GET | `/api/directives` |
+| 79 | `update_directive` | PATCH | `/api/directives/{directive_id}` |
+| 80 | `delete_directive` | DELETE | `/api/directives/{directive_id}` |
+| 81 | `resolve_directives` | GET | `/api/directives/resolve` |
+| 82 | `tag_directive` | POST | `/api/directives/{directive_id}/tags/{tag_id}` |
+| 83 | `untag_directive` | DELETE | `/api/directives/{directive_id}/tags/{tag_id}` |
+| 84 | `list_directive_tags` | GET | `/api/directives/{directive_id}/tags` |
+| 85 | `list_tagged_directives` | GET | `/api/tags/{tag_id}/directives` |
+| **Skills** | | | |
+| 86 | `create_skill` | POST | `/api/skills` |
+| 87 | `get_skill` | GET | `/api/skills/{skill_id}` |
+| 88 | `get_skill_full` | GET | `/api/skills/{skill_id}/full` |
+| 89 | `list_skills` | GET | `/api/skills` |
+| 90 | `update_skill` | PATCH | `/api/skills/{skill_id}` |
+| 91 | `delete_skill` | DELETE | `/api/skills/{skill_id}` |
+| 92 | `list_skill_domains` | GET | `/api/skills/{skill_id}/domains` |
+| 93 | `link_skill_domain` | POST | `/api/skills/{skill_id}/domains/{domain_id}` |
+| 94 | `unlink_skill_domain` | DELETE | `/api/skills/{skill_id}/domains/{domain_id}` |
+| 95 | `list_skill_protocols` | GET | `/api/skills/{skill_id}/protocols` |
+| 96 | `link_skill_protocol` | POST | `/api/skills/{skill_id}/protocols/{protocol_id}` |
+| 97 | `unlink_skill_protocol` | DELETE | `/api/skills/{skill_id}/protocols/{protocol_id}` |
+| 98 | `list_skill_directives` | GET | `/api/skills/{skill_id}/directives` |
+| 99 | `link_skill_directive` | POST | `/api/skills/{skill_id}/directives/{directive_id}` |
+| 100 | `unlink_skill_directive` | DELETE | `/api/skills/{skill_id}/directives/{directive_id}` |
+| **Batch Operations** | | | |
+| 101 | `batch_create_tasks` | POST | `/api/tasks/batch` |
+| 102 | `batch_create_activity` | POST | `/api/activity/batch` |
+| 103 | `batch_create_artifacts` | POST | `/api/artifacts/batch` |
+| 104 | `batch_create_protocols` | POST | `/api/protocols/batch` |
+| 105 | `batch_create_directives` | POST | `/api/directives/batch` |
+| 106 | `batch_create_skills` | POST | `/api/skills/batch` |
+| 107 | `batch_tag_task` | POST | `/api/tasks/{task_id}/tags/batch` |
+| 108 | `batch_tag_activity` | POST | `/api/activity/{activity_id}/tags/batch` |
+| 109 | `batch_tag_artifact` | POST | `/api/artifacts/{artifact_id}/tags/batch` |
 
 ### Mapping Verification Results
 
-**Status:** All 53 tools verified. Complete 1:1 correspondence confirmed.
+**Status:** All 109 tools verified. Complete 1:1 correspondence confirmed.
 
 - Every API endpoint has exactly one MCP tool.
 - Every MCP tool calls a real, existing API endpoint.
@@ -1652,6 +2639,53 @@ These patterns show how Claude composes multiple tool calls into workflows that 
 >
 > **Claude:** Logged. 13-day streak and counting — you're closing in on your best of 30.
 
+### Pattern 9: Agent Session Bootstrap
+
+**Scenario:** A specialized agent (e.g., Apollo Swagger) starts a session and needs to load its full operating context.
+
+**Tool chain:**
+
+1. `list_skills(is_default=true)` — find the default skill, or `list_skills(search="core-protocol")` for a specific one
+2. `get_skill_full(skill_id="...")` — load everything: domains, protocols, directives (grouped and prioritized)
+3. `resolve_directives(skill_id="...", scope_ref="...")` — optionally resolve agent-specific directives
+
+**Why this works:** `get_skill_full` is a single-call bootstrap. It returns protocols with steps, directives sorted by priority (global first, then skill-scoped), linked domains, and the skill's artifact. The agent has everything it needs to operate without multiple round trips.
+
+**Conversation flow:**
+
+> **User:** (activates Apollo Swagger agent)
+>
+> **Claude:** *Calls `get_skill_full(skill_id="c3d4e5f6-...")`*
+>
+> **Claude:** Context loaded. I have 3 protocols (session-startup, bug-triage, release-process), 5 global directives, and 2 skill-specific directives. My highest-priority rule is "Document reality, not intent" (priority 9). Ready to work.
+
+### Pattern 10: Seeding a New Skill with Batch Operations
+
+**Scenario:** Setting up a new agent operating mode with protocols, directives, and a reference artifact.
+
+**Tool chain:**
+
+1. `create_artifact(title="Agent Brief", artifact_type="brief", content="...")` — create reference doc
+2. `batch_create_protocols(items=[...])` — create multiple protocols at once
+3. `batch_create_directives(items=[...])` — create behavioral rules
+4. `create_skill(name="new-agent", artifact_id="...", protocol_ids=[...], directive_ids=[...])` — link everything
+
+**Why this works:** Batch operations reduce round trips and ensure atomicity. If any protocol fails validation, none are created — no partial state. The skill creation ties everything together with bulk linking at creation time.
+
+### Pattern 11: Cross-Entity Tag Discovery
+
+**Scenario:** Finding all BRAIN content related to a specific topic using tags.
+
+**Tool chain:**
+
+1. `list_tags(search="session")` — find the tag
+2. `list_tagged_artifacts(tag_id="...")` — reference docs
+3. `list_tagged_protocols(tag_id="...")` — procedures
+4. `list_tagged_directives(tag_id="...")` — rules
+5. `list_tagged_activities(tag_id="...")` — activity history
+
+**Why this works:** Tags are the universal cross-cutting label in BRAIN. Any taggable entity (tasks, activities, artifacts, protocols, directives) can be discovered through reverse tag lookups. This pattern builds a complete picture of everything related to a topic.
+
 ---
 
 ## Integration Guide
@@ -1843,5 +2877,5 @@ Missing required parameter: PARAM_NAME. Must be a non-empty string.
 
 ---
 
-*MCP Tool Guide · Apollo Swagger · BRAIN 3.0 v1.0.0*
+*MCP Tool Guide · Apollo Swagger · BRAIN 3.0 v1.2.0 · April 2026*
 *Project Flux Meridian · March 2026*
