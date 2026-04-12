@@ -10,6 +10,7 @@ from tools.projects import register as register_projects
 from tools.tasks import register as register_tasks
 from tools.tags import register as register_tags
 from tools.routines import register as register_routines
+from tools.habits import register as register_habits
 from tools.checkins import register as register_checkins
 from tools.activity import register as register_activity
 from tools.reports import register as register_reports
@@ -28,6 +29,7 @@ def register_all(mcp, api) -> None:
     register_tasks(mcp, api)
     register_tags(mcp, api)
     register_routines(mcp, api)
+    register_habits(mcp, api)
     register_checkins(mcp, api)
     register_activity(mcp, api)
     register_reports(mcp, api)
