@@ -18,6 +18,7 @@ def register(mcp, api) -> None:
         task_id: str | None = None,
         routine_id: str | None = None,
         checkin_id: str | None = None,
+        habit_id: str | None = None,
         notes: str | None = None,
         energy_before: int | None = None,
         energy_after: int | None = None,
@@ -29,7 +30,7 @@ def register(mcp, api) -> None:
         """Create an activity log entry.
 
         Records what happened and how the user felt. At most one of task_id,
-        routine_id, or checkin_id can be provided to link the entry.
+        routine_id, checkin_id, or habit_id can be provided to link the entry.
 
         Action types: completed, skipped, deferred, started, reflected,
         checked_in.
@@ -42,6 +43,7 @@ def register(mcp, api) -> None:
         validate_uuid(task_id, "task_id")
         validate_uuid(routine_id, "routine_id")
         validate_uuid(checkin_id, "checkin_id")
+        validate_uuid(habit_id, "habit_id")
         validate_range(energy_before, "energy_before")
         validate_range(energy_after, "energy_after")
         validate_range(mood_rating, "mood_rating")
@@ -53,6 +55,7 @@ def register(mcp, api) -> None:
             "task_id": task_id,
             "routine_id": routine_id,
             "checkin_id": checkin_id,
+            "habit_id": habit_id,
             "action_type": action_type,
             "notes": notes,
             "energy_before": energy_before,
@@ -73,13 +76,16 @@ def register(mcp, api) -> None:
         logged_before: str | None = None,
         has_task: bool | None = None,
         has_routine: bool | None = None,
+        has_habit: bool | None = None,
+        has_checkin: bool | None = None,
         tag: str | None = None,
     ) -> list:
         """List activity log entries with optional filters.
 
-        Filter by action type, linked task or routine, date range, or whether
-        entries have a task/routine attached. Results are ordered newest first.
-        Use this to review what the user has been doing and how they felt.
+        Filter by action type, linked task, routine, or habit, date range,
+        or whether entries have a task/routine/habit/checkin attached.
+        Results are ordered newest first. Use this to review what the user
+        has been doing and how they felt.
 
         The tag parameter accepts comma-separated tag names with AND logic.
         Example: tag="session-handoff" or tag="movie,fluxnook" (entries must
@@ -98,6 +104,8 @@ def register(mcp, api) -> None:
                 logged_before=logged_before,
                 has_task=has_task,
                 has_routine=has_routine,
+                has_habit=has_habit,
+                has_checkin=has_checkin,
                 tag=tag,
             ),
         )
@@ -118,6 +126,7 @@ def register(mcp, api) -> None:
         task_id: str | None = None,
         routine_id: str | None = None,
         checkin_id: str | None = None,
+        habit_id: str | None = None,
         action_type: str | None = None,
         notes: str | None = None,
         energy_before: int | None = None,
@@ -134,6 +143,7 @@ def register(mcp, api) -> None:
         validate_uuid(task_id, "task_id")
         validate_uuid(routine_id, "routine_id")
         validate_uuid(checkin_id, "checkin_id")
+        validate_uuid(habit_id, "habit_id")
         validate_enum(action_type, "action_type", ACTION_TYPES)
         validate_range(energy_before, "energy_before")
         validate_range(energy_after, "energy_after")
@@ -143,6 +153,7 @@ def register(mcp, api) -> None:
             "task_id": task_id,
             "routine_id": routine_id,
             "checkin_id": checkin_id,
+            "habit_id": habit_id,
             "action_type": action_type,
             "notes": notes,
             "energy_before": energy_before,

@@ -21,6 +21,7 @@ brain3-mcp/
         ├── activity.py    ← Activity logging + tagging (9 tools)
         ├── artifacts.py   ← Document storage + tagging (9 tools)
         ├── batch.py       ← Batch create + batch tag (9 tools)
+        ├── habits.py      ← Habit CRUD + completion (6 tools)
         ├── checkins.py    ← Check-in CRUD (5 tools)
         ├── directives.py  ← Behavioral rules + tagging + resolve (10 tools)
         ├── domains.py     ← Life domain CRUD (5 tools)
@@ -107,7 +108,7 @@ Add to your Claude Code settings or project `.mcp.json`:
 }
 ```
 
-## Available Tools (109)
+## Available Tools (115)
 
 ### Health Check (1)
 | Tool | Description |
@@ -175,6 +176,16 @@ Add to your Claude Code settings or project `.mcp.json`:
 | `add_routine_schedule` | Add a schedule entry (day + time) |
 | `list_routine_schedules` | List schedule entries |
 | `delete_routine_schedule` | Remove a schedule entry |
+
+### Habits (6)
+| Tool | Description |
+|------|-------------|
+| `create_habit` | Create a new habit (standalone or under a routine) |
+| `get_habit` | Get habit with parent routine info |
+| `list_habits` | List habits with filters (routine, status, scaffolding) |
+| `update_habit` | Update habit details or scaffolding status |
+| `delete_habit` | Delete a habit |
+| `complete_habit` | Record individual habit completion (idempotent) |
 
 ### Check-ins (5)
 | Tool | Description |

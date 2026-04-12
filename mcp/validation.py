@@ -24,6 +24,12 @@ COGNITIVE_TYPES = {
 }
 ROUTINE_FREQUENCIES = {"daily", "weekdays", "weekends", "weekly", "custom"}
 ROUTINE_STATUSES = {"active", "paused", "retired"}
+HABIT_STATUSES = {"active", "paused", "graduated", "abandoned"}
+HABIT_FREQUENCIES = {"daily", "weekdays", "weekends", "weekly", "custom"}
+NOTIFICATION_FREQUENCIES = {
+    "daily", "every_other_day", "twice_week", "weekly", "graduated", "none",
+}
+SCAFFOLDING_STATUSES = {"tracking", "accountable", "graduated"}
 CHECKIN_TYPES = {"morning", "midday", "evening", "micro", "freeform"}
 ACTION_TYPES = {
     "completed", "skipped", "deferred", "started", "reflected", "checked_in",
