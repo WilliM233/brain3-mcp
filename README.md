@@ -1,6 +1,6 @@
 # BRAIN 3.0 MCP Server
 
-MCP (Model Context Protocol) server that gives Claude full access to the BRAIN 3.0 API. Every API endpoint is exposed as a tool Claude can call — 109 tools covering the seven pillars, knowledge layer, batch operations, and reporting. Turns your task/routine/goal/knowledge database into a conversational partner.
+MCP (Model Context Protocol) server that gives Claude full access to the BRAIN 3.0 API. Every API endpoint is exposed as a tool Claude can call — 121 tools covering the seven pillars, knowledge layer, notification queue, batch operations, and reporting. Turns your task/routine/goal/knowledge database into a conversational partner.
 
 ## Project Structure
 
@@ -22,6 +22,7 @@ brain3-mcp/
         ├── artifacts.py   ← Document storage + tagging (9 tools)
         ├── batch.py       ← Batch create + batch tag (9 tools)
         ├── habits.py      ← Habit CRUD + completion (6 tools)
+        ├── notifications.py ← Notification queue + response (6 tools)
         ├── checkins.py    ← Check-in CRUD (5 tools)
         ├── directives.py  ← Behavioral rules + tagging + resolve (10 tools)
         ├── domains.py     ← Life domain CRUD (5 tools)
@@ -108,7 +109,7 @@ Add to your Claude Code settings or project `.mcp.json`:
 }
 ```
 
-## Available Tools (115)
+## Available Tools (121)
 
 ### Health Check (1)
 | Tool | Description |
@@ -186,6 +187,16 @@ Add to your Claude Code settings or project `.mcp.json`:
 | `update_habit` | Update habit details or scaffolding status |
 | `delete_habit` | Delete a habit |
 | `complete_habit` | Record individual habit completion (idempotent) |
+
+### Notifications (6)
+| Tool | Description |
+|------|-------------|
+| `create_notification` | Schedule a notification for delivery |
+| `get_notification` | Retrieve a notification by ID |
+| `list_notifications` | Browse notifications with composable filters |
+| `update_notification` | Modify a pending or delivered notification |
+| `delete_notification` | Remove a notification from the queue |
+| `respond_to_notification` | Record a user response to a delivered notification |
 
 ### Check-ins (5)
 | Tool | Description |
