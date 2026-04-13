@@ -1,0 +1,25 @@
+services:
+  mcp:
+    build: .
+    container_name: brain3-mcp
+    restart: unless-stopped
+    ports:
+      - "${MCP_PORT:-8001}:8001"
+    environment:
+      - MCP_TRANSPORT=http
+      - MCP_HOST=0.0.0.0
+      - MCP_PORT=8001
+      - BRAIN3_API_URL=http://api:8000
+      - MCP_AUTH_TOKEN=${MCP_AUTH_TOKEN}
+    networks:
+      - brain3-net
+    healthcheck:
+      test: ["CMD", "python", "-c", "import httpx; r = httpx.get('http://localhost:8001/mcp', timeout=5); assert r.status_code != 500"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+networks:
+  brain3-net:
+    external: true
