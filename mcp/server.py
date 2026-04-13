@@ -1,15 +1,24 @@
 """BRAIN 3.0 MCP Server.
 
 Exposes every BRAIN 3.0 API endpoint as an MCP tool that Claude can call.
-Runs via stdio transport as a subprocess of the Claude client.
+Supports two transport modes:
+- stdio (default): runs as a subprocess of the Claude client
+- streamable HTTP: runs as a network-accessible server
 """
+
+import os
+import sys
 
 from mcp.server.fastmcp import FastMCP
 
 from client import BrainAPIClient
 from tools import register_all
 
-mcp = FastMCP("BRAIN 3.0")
+transport = os.environ.get("MCP_TRANSPORT", "stdio")
+host = os.environ.get("MCP_HOST", "0.0.0.0")
+port = int(os.environ.get("MCP_PORT", "8001"))
+
+mcp = FastMCP("BRAIN 3.0", host=host, port=port)
 api = BrainAPIClient()
 
 register_all(mcp, api)
@@ -34,4 +43,12 @@ async def health_check() -> dict:
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    mcp.run(transport="stdio")
+    if transport == "http":
+        print(
+            f"Starting BRAIN 3.0 MCP server (streamable-http) on {host}:{port}",
+            file=sys.stderr,
+        )
+        mcp.run(transport="streamable-http")
+    else:
+        print("Starting BRAIN 3.0 MCP server (stdio)", file=sys.stderr)
+        mcp.run(transport="stdio")
