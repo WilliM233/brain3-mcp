@@ -18,6 +18,7 @@ from tools.artifacts import register as register_artifacts
 from tools.protocols import register as register_protocols
 from tools.directives import register as register_directives
 from tools.skills import register as register_skills
+from tools.notifications import register as register_notifications
 from tools.batch import register as register_batch
 
 
@@ -37,4 +38,5 @@ def register_all(mcp, api) -> None:
     register_protocols(mcp, api)
     register_directives(mcp, api)
     register_skills(mcp, api)
+    register_notifications(mcp, api)
     register_batch(mcp, api)
