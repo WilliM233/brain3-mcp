@@ -5,6 +5,7 @@ from validation import (
     validate_range,
     validate_required_str,
     validate_uuid,
+    COMPLETION_STATUSES,
     DAYS_OF_WEEK,
     ROUTINE_FREQUENCIES,
     ROUTINE_STATUSES,
@@ -133,16 +134,31 @@ def register(mcp, api) -> None:
     async def complete_routine(
         routine_id: str,
         completed_date: str | None = None,
+        status: str = "all_done",
+        freeform_note: str | None = None,
     ) -> dict:
         """Record a routine completion and evaluate the streak.
 
         Call this when the user completes a routine. Returns updated streak
         info including whether the streak was broken and recovered.
+
+        Three completion modes:
+        - all_done (default): routine fully completed.
+        - partial: routine partially completed — use freeform_note to
+          explain what was done.
+        - skipped: routine intentionally skipped — use freeform_note to
+          capture why.
+
         If completed_date is omitted, today's date is used.
         Date format: YYYY-MM-DD.
         """
         validate_uuid(routine_id, "routine_id")
-        body = strip_nones({"completed_date": completed_date})
+        validate_enum(status, "status", COMPLETION_STATUSES)
+        body = strip_nones({
+            "completed_date": completed_date,
+            "status": status,
+            "freeform_note": freeform_note,
+        })
         return await api.post(
             f"/api/routines/{routine_id}/complete", json=body or None
         )

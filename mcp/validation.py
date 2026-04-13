@@ -30,6 +30,7 @@ NOTIFICATION_FREQUENCIES = {
     "daily", "every_other_day", "twice_week", "weekly", "graduated", "none",
 }
 SCAFFOLDING_STATUSES = {"tracking", "accountable", "graduated"}
+COMPLETION_STATUSES = {"all_done", "partial", "skipped"}
 CHECKIN_TYPES = {"morning", "midday", "evening", "micro", "freeform"}
 ACTION_TYPES = {
     "completed", "skipped", "deferred", "started", "reflected", "checked_in",
