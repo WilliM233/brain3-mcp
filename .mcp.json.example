@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "brain3-prod": {
+      "type": "http",
+      "url": "http://<truenas-ip>:8001/mcp",
+      "headers": {
+        "Authorization": "Bearer <your-token>"
+      }
+    }
+  }
+}

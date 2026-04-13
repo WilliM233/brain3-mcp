@@ -6,16 +6,21 @@ MCP (Model Context Protocol) server that gives Claude full access to the BRAIN 3
 
 ```
 brain3-mcp/
-├── README.md              ← Setup, config, tool inventory (you are here)
-├── LICENSE                ← AGPL-3.0
+├── README.md                ← Setup, config, tool inventory (you are here)
+├── LICENSE                  ← AGPL-3.0
+├── Dockerfile               ← Production container build
+├── docker-compose.prod.yml  ← Docker Compose for remote deployment
+├── .env.example             ← Environment variable reference
+├── .mcp.json.example        ← Claude Code remote config template
 ├── docs/
-│   └── MCP_TOOL_GUIDE.md ← Detailed tool reference with usage patterns
+│   └── MCP_TOOL_GUIDE.md   ← Detailed tool reference with usage patterns
 └── mcp/
-    ├── server.py          ← MCP server entry point + health_check tool
-    ├── client.py          ← Async HTTP client for the BRAIN 3.0 API
-    ├── validation.py      ← Input validation helpers (UUID, enum, range)
-    ├── requirements.txt   ← Python dependencies (mcp, httpx)
-    └── tools/             ← Tool definitions organized by entity
+    ├── server.py            ← MCP server entry point (stdio + HTTP)
+    ├── auth.py              ← Bearer token middleware (HTTP transport)
+    ├── client.py            ← Async HTTP client for the BRAIN 3.0 API
+    ├── validation.py        ← Input validation helpers (UUID, enum, range)
+    ├── requirements.txt     ← Python dependencies (mcp, httpx, uvicorn)
+    └── tools/               ← Tool definitions organized by entity
         ├── __init__.py    ← register_all(mcp, api) orchestrator
         ├── _helpers.py    ← Shared utilities (strip_nones, params)
         ├── activity.py    ← Activity logging + tagging (9 tools)
@@ -108,6 +113,165 @@ Add to your Claude Code settings or project `.mcp.json`:
   }
 }
 ```
+
+## Remote Deployment
+
+Run brain3-mcp as a network-accessible HTTP server so Claude can reach BRAIN from any device — desktop, laptop, phone. This is the "Claude on my phone can talk to BRAIN on TrueNAS" setup.
+
+### Prerequisites
+
+- Docker and Docker Compose on the deployment host (e.g. TrueNAS)
+- BRAIN 3.0 API running and accessible from the Docker host
+- A `brain3-net` Docker network shared with the brain3 API container
+- LAN access from client devices to the Docker host on port 8001
+
+### Quick Start
+
+1. **Clone the repo on the deployment host:**
+
+   ```bash
+   git clone https://github.com/WilliM233/brain3-mcp.git
+   cd brain3-mcp
+   ```
+
+2. **Create your `.env` file from the example:**
+
+   ```bash
+   cp .env.example .env
+   ```
+
+   Edit `.env` and set a strong, unique `MCP_AUTH_TOKEN`:
+
+   ```
+   MCP_AUTH_TOKEN=your-secret-token-here
+   ```
+
+3. **Create the shared Docker network** (if not already created by brain3):
+
+   ```bash
+   docker network create brain3-net
+   ```
+
+4. **Build and start the container:**
+
+   ```bash
+   docker compose -f docker-compose.prod.yml up -d --build
+   ```
+
+5. **Verify it's running:**
+
+   ```bash
+   docker compose -f docker-compose.prod.yml ps
+   docker compose -f docker-compose.prod.yml logs mcp
+   ```
+
+   You should see: `Starting BRAIN 3.0 MCP server (streamable-http) on 0.0.0.0:8001`
+
+### Connecting Claude Code
+
+**Option A — CLI command:**
+
+```bash
+claude mcp add --transport http brain3-prod http://<truenas-ip>:8001/mcp \
+  --header "Authorization: Bearer <your-token>"
+```
+
+**Option B — Project-scoped `.mcp.json`:**
+
+Copy the example file and fill in your values:
+
+```bash
+cp .mcp.json.example .mcp.json
+```
+
+```json
+{
+  "mcpServers": {
+    "brain3-prod": {
+      "type": "http",
+      "url": "http://<truenas-ip>:8001/mcp",
+      "headers": {
+        "Authorization": "Bearer <your-token>"
+      }
+    }
+  }
+}
+```
+
+> **Note:** `.mcp.json` contains auth tokens and is gitignored. Never commit it.
+
+After adding, restart Claude Code. Verify with:
+
+```
+> call health_check via brain3-prod
+```
+
+### Connecting Claude Desktop
+
+**Option A — Connectors UI (preferred):**
+
+1. Open Claude Desktop → Settings → Connectors
+2. Add new connector with URL: `http://<truenas-ip>:8001/mcp`
+
+Once added as a Connector, tools are available across all Claude clients signed into your account — including Claude on iOS/Android via claude.ai.
+
+**Option B — mcp-remote bridge (fallback):**
+
+Add to your Claude Desktop config (`claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "brain3-prod": {
+      "command": "npx",
+      "args": [
+        "mcp-remote@latest",
+        "--http",
+        "http://<truenas-ip>:8001/mcp",
+        "--header",
+        "Authorization: Bearer <your-token>"
+      ]
+    }
+  }
+}
+```
+
+### Verifying the Connection
+
+Once connected from any client, spot-check these tools to confirm everything works end-to-end:
+
+1. `health_check` — confirms Claude → MCP → BRAIN API → PostgreSQL connectivity
+2. `list_domains` — confirms read operations work
+3. `create_task` / `delete_task` — confirms write operations work
+4. `get_activity_summary` — confirms report endpoints work
+
+All tools should return identical results whether accessed over stdio or HTTP.
+
+### Remote Troubleshooting
+
+**"Cannot reach BRAIN 3.0 API"**
+- The MCP container can reach the API via `http://api:8000` over the `brain3-net` Docker network
+- Verify both containers are on the same network: `docker network inspect brain3-net`
+- Check the brain3 API container is running: `docker ps | grep brain3`
+
+**"Missing bearer token" / "Invalid bearer token" (401)**
+- Ensure the `Authorization: Bearer <token>` header is included in your client config
+- Verify the token matches `MCP_AUTH_TOKEN` in your `.env` file exactly (no trailing whitespace)
+- Claude Code: re-run `claude mcp add` with the correct token
+- Claude Desktop Connectors: remove and re-add the connector
+
+**Connection refused / timeout**
+- Verify the MCP container is running: `docker compose -f docker-compose.prod.yml ps`
+- Check port 8001 is exposed: `docker port brain3-mcp`
+- Confirm no firewall is blocking port 8001 between your device and the Docker host
+- Try from the Docker host first: `curl -H "Authorization: Bearer <token>" http://localhost:8001/mcp`
+
+**Tools not appearing in Claude**
+- Restart Claude Desktop/Code after adding the remote server config
+- Check logs for connection errors: `docker compose -f docker-compose.prod.yml logs -f mcp`
+- Verify the MCP endpoint returns a valid response (not a 500)
+
+---
 
 ## Available Tools (121)
 
@@ -318,14 +482,19 @@ Add to your Claude Code settings or project `.mcp.json`:
 
 The MCP server is a **thin, stateless translation layer**. It makes no decisions — Claude's intelligence handles reasoning and composition. The server translates tool calls into HTTP requests and returns the API response.
 
+Two transport modes serve different deployment scenarios:
+
 ```
-Claude Desktop / Claude Code
-        | stdio
-   brain3-mcp (this server)
-        | HTTP (httpx)
-   brain3 FastAPI (localhost or TrueNAS IP)
-        |
-   PostgreSQL
+Local (stdio)                          Remote (streamable HTTP)
+─────────────                          ────────────────────────
+Claude Desktop / Claude Code           Claude Desktop / Code / Mobile
+        | stdio (subprocess)                   | HTTPS / HTTP
+   brain3-mcp                          brain3-mcp (Docker container)
+        | HTTP (httpx)                     + Bearer token auth
+   brain3 FastAPI                              | HTTP (httpx)
+        |                              brain3 FastAPI (Docker)
+   PostgreSQL                                  |
+                                       PostgreSQL
 ```
 
 **Design principles:**
