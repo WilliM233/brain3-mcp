@@ -44,11 +44,26 @@ async def health_check() -> dict:
 
 if __name__ == "__main__":
     if transport == "http":
+        token = os.environ.get("MCP_AUTH_TOKEN")
+        if not token:
+            print(
+                "ERROR: MCP_AUTH_TOKEN must be set when running in HTTP transport mode",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+
+        import uvicorn
+
+        from auth import BearerAuthMiddleware
+
+        app = mcp.streamable_http_app()
+        app.add_middleware(BearerAuthMiddleware, token=token)
+
         print(
             f"Starting BRAIN 3.0 MCP server (streamable-http) on {host}:{port}",
             file=sys.stderr,
         )
-        mcp.run(transport="streamable-http")
+        uvicorn.run(app, host=host, port=port)
     else:
         print("Starting BRAIN 3.0 MCP server (stdio)", file=sys.stderr)
         mcp.run(transport="stdio")
