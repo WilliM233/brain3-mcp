@@ -42,6 +42,15 @@ ARTIFACT_TYPES = {
     "document", "protocol", "brief", "prompt", "template", "journal", "spec",
 }
 DIRECTIVE_SCOPES = {"global", "skill", "agent"}
+NOTIFICATION_TYPES = {
+    "habit_nudge", "routine_checklist", "checkin_prompt",
+    "time_block_reminder", "deadline_event_alert", "pattern_observation",
+    "stale_work_nudge",
+}
+NOTIFICATION_STATUSES = {"pending", "delivered", "responded", "expired"}
+DELIVERY_TYPES = {"notification"}
+SCHEDULED_BY_VALUES = {"system", "claude", "rule"}
+TARGET_ENTITY_TYPES = {"habit", "routine", "task", "checkin", "goal", "project"}
 
 
 # ---------------------------------------------------------------------------
