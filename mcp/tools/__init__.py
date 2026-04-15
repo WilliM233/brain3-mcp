@@ -20,6 +20,7 @@ from tools.directives import register as register_directives
 from tools.skills import register as register_skills
 from tools.notifications import register as register_notifications
 from tools.batch import register as register_batch
+from tools.rules import register as register_rules
 
 
 def register_all(mcp, api) -> None:
@@ -40,3 +41,4 @@ def register_all(mcp, api) -> None:
     register_skills(mcp, api)
     register_notifications(mcp, api)
     register_batch(mcp, api)
+    register_rules(mcp, api)
