@@ -51,9 +51,9 @@ NOTIFICATION_STATUSES = {"pending", "delivered", "responded", "expired"}
 DELIVERY_TYPES = {"notification"}
 SCHEDULED_BY_VALUES = {"system", "claude", "rule"}
 TARGET_ENTITY_TYPES = {"habit", "routine", "task", "checkin", "goal", "project"}
-RULE_ENTITY_TYPES = {"habit", "routine", "task", "goal", "project"}
+RULE_ENTITY_TYPES = {"habit", "task", "routine", "checkin"}
 RULE_METRICS = {"consecutive_skips", "days_untouched", "non_responses", "streak_length"}
-RULE_OPERATORS = {"gte", "lte", "eq"}
+RULE_OPERATORS = {">=", "<=", "=="}
 
 
 # ---------------------------------------------------------------------------

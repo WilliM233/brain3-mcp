@@ -47,7 +47,7 @@ class TestCreateRule:
             name="Skip alert",
             entity_type="habit",
             metric="consecutive_skips",
-            operator="gte",
+            operator=">=",
             threshold=3,
             notification_type="habit_nudge",
             message_template="{entity_name} has been skipped {metric_value} times",
@@ -60,7 +60,7 @@ class TestCreateRule:
         assert body["name"] == "Skip alert"
         assert body["entity_type"] == "habit"
         assert body["metric"] == "consecutive_skips"
-        assert body["operator"] == "gte"
+        assert body["operator"] == ">="
         assert body["threshold"] == 3
         assert body["notification_type"] == "habit_nudge"
         assert body["enabled"] is True
@@ -73,7 +73,7 @@ class TestCreateRule:
             name="Targeted rule",
             entity_type="habit",
             metric="consecutive_skips",
-            operator="gte",
+            operator=">=",
             threshold=2,
             notification_type="habit_nudge",
             message_template="test",
@@ -93,7 +93,7 @@ class TestCreateRule:
                 name="Bad rule",
                 entity_type="widget",
                 metric="consecutive_skips",
-                operator="gte",
+                operator=">=",
                 threshold=3,
                 notification_type="habit_nudge",
                 message_template="test",
@@ -106,7 +106,7 @@ class TestCreateRule:
                 name="Bad rule",
                 entity_type="habit",
                 metric="invalid_metric",
-                operator="gte",
+                operator=">=",
                 threshold=3,
                 notification_type="habit_nudge",
                 message_template="test",
@@ -132,7 +132,7 @@ class TestCreateRule:
                 name="Bad rule",
                 entity_type="habit",
                 metric="consecutive_skips",
-                operator="gte",
+                operator=">=",
                 threshold=3,
                 notification_type="invalid_type",
                 message_template="test",
@@ -145,7 +145,7 @@ class TestCreateRule:
                 name="Bad rule",
                 entity_type="habit",
                 metric="consecutive_skips",
-                operator="gte",
+                operator=">=",
                 threshold=-1,
                 notification_type="habit_nudge",
                 message_template="test",
@@ -158,7 +158,7 @@ class TestCreateRule:
                 name="Bad rule",
                 entity_type="habit",
                 metric="consecutive_skips",
-                operator="gte",
+                operator=">=",
                 threshold=3,
                 notification_type="habit_nudge",
                 message_template="test",
@@ -172,7 +172,7 @@ class TestCreateRule:
                 name="",
                 entity_type="habit",
                 metric="consecutive_skips",
-                operator="gte",
+                operator=">=",
                 threshold=3,
                 notification_type="habit_nudge",
                 message_template="test",
@@ -185,12 +185,56 @@ class TestCreateRule:
                 name="Bad rule",
                 entity_type="habit",
                 metric="consecutive_skips",
-                operator="gte",
+                operator=">=",
                 threshold=3,
                 notification_type="habit_nudge",
                 message_template="test",
                 entity_id="not-a-uuid",
             )
+
+    @pytest.mark.anyio
+    async def test_checkin_entity_type_accepted(self, tools, api):
+        api.post.return_value = {"id": VALID_UUID}
+        await tools["create_rule"](
+            name="Checkin rule",
+            entity_type="checkin",
+            metric="non_responses",
+            operator=">=",
+            threshold=3,
+            notification_type="checkin_prompt",
+            message_template="test",
+        )
+        body = api.post.call_args[1]["json"]
+        assert body["entity_type"] == "checkin"
+
+    @pytest.mark.anyio
+    async def test_goal_entity_type_rejected(self, tools):
+        with pytest.raises(InputValidationError, match="entity_type"):
+            await tools["create_rule"](
+                name="Bad rule",
+                entity_type="goal",
+                metric="consecutive_skips",
+                operator=">=",
+                threshold=3,
+                notification_type="habit_nudge",
+                message_template="test",
+            )
+
+    @pytest.mark.parametrize("symbol", [">=", "<=", "=="])
+    @pytest.mark.anyio
+    async def test_all_operator_symbols_accepted(self, tools, api, symbol):
+        api.post.return_value = {"id": VALID_UUID}
+        await tools["create_rule"](
+            name=f"Rule {symbol}",
+            entity_type="habit",
+            metric="consecutive_skips",
+            operator=symbol,
+            threshold=3,
+            notification_type="habit_nudge",
+            message_template="test",
+        )
+        body = api.post.call_args[1]["json"]
+        assert body["operator"] == symbol
 
 
 # ---------------------------------------------------------------------------
