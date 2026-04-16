@@ -35,9 +35,10 @@ def register(mcp, api) -> None:
         meets a threshold, create a notification. Use this to set up
         automated nudges, alerts, and pattern-based interventions.
 
-        Available metrics: consecutive_skips, days_untouched,
-        non_responses, streak_length.
-        Operators: >= (gte), <= (lte), == (eq).
+        Entity types: habit, task, routine, checkin.
+        Metrics: consecutive_skips, days_untouched, non_responses,
+        streak_length.
+        Operators: must be sent as symbols — ">=", "<=", "==".
 
         Message templates support placeholders: {entity_name},
         {entity_type}, {metric_value}, {threshold}, {rule_name}.
@@ -139,6 +140,9 @@ def register(mcp, api) -> None:
         All fields are optional — only provided fields are changed. Use to
         tune thresholds, adjust cooldowns, enable/disable rules, or update
         message templates.
+
+        Entity types: habit, task, routine, checkin.
+        Operators: must be sent as symbols — ">=", "<=", "==".
         """
         validate_uuid(rule_id, "rule_id")
         validate_enum(entity_type, "entity_type", RULE_ENTITY_TYPES)
