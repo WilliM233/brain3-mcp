@@ -5,6 +5,7 @@ API errors, and provides a clean interface for the MCP tool layer.
 Designed so adding an Authorization header is a one-line change.
 """
 
+import json as _json
 import os
 
 import httpx
@@ -94,6 +95,14 @@ class BrainAPIClient:
                 detail = response.json().get("detail", response.text)
             except Exception:
                 detail = response.text
+            # FastAPI's default RequestValidationError returns detail as a
+            # list of dicts; HTTPException(detail={...}) is also valid. Keep
+            # the error message JSON-parseable by MCP consumers (Claude) —
+            # plain f-string formatting on a list/dict falls back to Python
+            # repr (single-quoted keys, None/True/False literals), which
+            # Claude cannot reliably parse.
+            if not isinstance(detail, str):
+                detail = _json.dumps(detail)
             raise BrainAPIError(
                 f"API error ({response.status_code}): {detail}"
             )

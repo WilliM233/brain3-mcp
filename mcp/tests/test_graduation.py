@@ -461,3 +461,36 @@ class TestStackingFlow:
         assert result["ready"] is False
         assert result["blocking_habits"][0]["stability"] == "unstable"
         assert result["suggested_habit"]["title"] == "Flossing"
+
+
+# ---------------------------------------------------------------------------
+# [MCP-BUG-01] Structured-detail error envelope — regression coverage
+# ---------------------------------------------------------------------------
+
+class TestStructuredDetailErrorEnvelope:
+    """Tool-level error path receives FastAPI-shaped list-of-dicts detail."""
+
+    @pytest.mark.anyio
+    async def test_graduate_habit_422_list_detail_is_json_parseable(
+        self, tools, api,
+    ):
+        import json
+
+        validation_detail = [
+            {
+                "type": "bool_parsing",
+                "loc": ["body", "force"],
+                "msg": "Input should be a valid boolean",
+                "input": "not-a-bool",
+            },
+        ]
+        api.post.side_effect = make_api_error(422, validation_detail)
+
+        with pytest.raises(BrainAPIError) as exc_info:
+            await tools["graduate_habit"](habit_id=VALID_UUID)
+
+        message = str(exc_info.value)
+        assert message.startswith("API error (422): ")
+        payload = message.removeprefix("API error (422): ")
+        assert json.loads(payload) == validation_detail
+        assert '"msg"' in message

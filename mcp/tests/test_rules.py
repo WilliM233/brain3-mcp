@@ -464,3 +464,36 @@ class TestEvaluateRule:
         api.post.side_effect = make_api_error(404, "Rule not found")
         with pytest.raises(BrainAPIError, match="404"):
             await tools["evaluate_rule"](rule_id=VALID_UUID)
+
+
+# ---------------------------------------------------------------------------
+# [MCP-BUG-01] Structured-detail error envelope — regression coverage
+# ---------------------------------------------------------------------------
+
+class TestStructuredDetailErrorEnvelope:
+    """Tool-level error path receives FastAPI-shaped list-of-dicts detail."""
+
+    @pytest.mark.anyio
+    async def test_evaluate_rule_422_list_detail_is_json_parseable(
+        self, tools, api,
+    ):
+        import json
+
+        validation_detail = [
+            {
+                "type": "uuid_parsing",
+                "loc": ["path", "rule_id"],
+                "msg": "Input should be a valid UUID",
+                "input": "bogus",
+            },
+        ]
+        api.post.side_effect = make_api_error(422, validation_detail)
+
+        with pytest.raises(BrainAPIError) as exc_info:
+            await tools["evaluate_rule"](rule_id=VALID_UUID)
+
+        message = str(exc_info.value)
+        assert message.startswith("API error (422): ")
+        payload = message.removeprefix("API error (422): ")
+        assert json.loads(payload) == validation_detail
+        assert '"msg"' in message
