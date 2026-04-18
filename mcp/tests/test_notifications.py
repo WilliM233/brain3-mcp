@@ -387,3 +387,45 @@ class TestRespondToNotification:
             await tools["respond_to_notification"](
                 notification_id=VALID_UUID, response="done"
             )
+
+
+# ---------------------------------------------------------------------------
+# [MCP-BUG-01] Structured-detail error envelope — regression coverage
+# ---------------------------------------------------------------------------
+
+class TestStructuredDetailErrorEnvelope:
+    """Tool-level error path receives FastAPI-shaped list-of-dicts detail."""
+
+    @pytest.mark.anyio
+    async def test_create_notification_422_list_detail_is_json_parseable(
+        self, tools, api,
+    ):
+        import json
+
+        validation_detail = [
+            {
+                "type": "missing",
+                "loc": ["body", "notification_type"],
+                "msg": "Field required",
+                "input": {},
+            },
+        ]
+        api.post.side_effect = make_api_error(422, validation_detail)
+
+        with pytest.raises(BrainAPIError) as exc_info:
+            await tools["create_notification"](
+                notification_type="habit_nudge",
+                scheduled_at="2026-04-14T09:00:00Z",
+                target_entity_type="habit",
+                target_entity_id=VALID_UUID,
+                message="Time",
+                scheduled_by="claude",
+            )
+
+        message = str(exc_info.value)
+        assert message.startswith("API error (422): ")
+        payload = message.removeprefix("API error (422): ")
+        # Full round-trip: message body is valid JSON.
+        assert json.loads(payload) == validation_detail
+        # Double-quoted keys — distinguishes from Python repr's single quotes.
+        assert '"msg"' in message

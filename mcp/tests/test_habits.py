@@ -3,9 +3,11 @@
 import pytest
 from unittest.mock import AsyncMock
 
+from client import BrainAPIError
 from mcp.server.fastmcp import FastMCP
 from tools.habits import register
 from validation import InputValidationError
+from tests.conftest import make_api_error
 
 
 VALID_UUID = "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
@@ -113,3 +115,36 @@ class TestUpdateHabitFrictionScore:
             await tools["update_habit"](
                 habit_id=VALID_UUID, friction_score=10,
             )
+
+
+# ---------------------------------------------------------------------------
+# [MCP-BUG-01] Structured-detail error envelope — regression coverage
+# ---------------------------------------------------------------------------
+
+class TestStructuredDetailErrorEnvelope:
+    """Tool-level error path receives FastAPI-shaped list-of-dicts detail."""
+
+    @pytest.mark.anyio
+    async def test_create_habit_422_list_detail_is_json_parseable(
+        self, tools, api,
+    ):
+        import json
+
+        validation_detail = [
+            {
+                "type": "missing",
+                "loc": ["body", "title"],
+                "msg": "Field required",
+                "input": {"frequency": "daily"},
+            },
+        ]
+        api.post.side_effect = make_api_error(422, validation_detail)
+
+        with pytest.raises(BrainAPIError) as exc_info:
+            await tools["create_habit"](title="Floss", frequency="daily")
+
+        message = str(exc_info.value)
+        assert message.startswith("API error (422): ")
+        payload = message.removeprefix("API error (422): ")
+        assert json.loads(payload) == validation_detail
+        assert '"msg"' in message
