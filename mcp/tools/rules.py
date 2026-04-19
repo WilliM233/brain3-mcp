@@ -194,8 +194,20 @@ def register(mcp, api) -> None:
         """Evaluate all enabled rules now.
 
         Checks each rule's condition against current BRAIN data, respects
-        cooldowns, and creates notifications for rules that fire. Returns
-        a summary of what fired and what was skipped.
+        cooldowns, and creates notifications for rules that fire.
+
+        Returns a `RuleEvaluationRunResponse` envelope:
+        ``{"summary": {...}, "results": [...]}``.
+
+        ``response["summary"]`` is a nested object with the run-level
+        totals: ``total_rules_evaluated``, per-reason counts (``fired``,
+        ``cooldown``, ``condition_not_met``, ``no_matching_entities``,
+        ``error``), ``total_notifications_created``, and ``evaluated_at``
+        (ISO8601 UTC).
+
+        ``response["results"]`` is a list of per-rule outcomes with
+        ``rule_id``, ``rule_name``, ``fired``, ``reason``,
+        ``notifications_created``, ``entities_evaluated``.
 
         The scheduler calls this automatically, but you can trigger it
         manually during a session to check rule behavior or after making
