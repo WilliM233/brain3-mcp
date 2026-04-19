@@ -57,12 +57,15 @@ def register(mcp, api) -> None:
         status: str | None = None,
         frequency: str | None = None,
         streak_broken: bool | None = None,
-    ) -> list:
+    ) -> dict:
         """List routines with optional filters.
 
         Filter by domain, status (active, paused, retired), frequency,
         or streak_broken=true to find active routines that have lost their
         streak. All filters combine with AND logic.
+
+        Returns a `RoutineListResponse` envelope: ``{"items": [...], "count": N}``.
+        ``items`` is the routine list; ``count`` is the total matching the filters.
         """
         validate_uuid(domain_id, "domain_id")
         validate_enum(status, "status", ROUTINE_STATUSES)
