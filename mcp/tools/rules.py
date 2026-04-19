@@ -86,11 +86,16 @@ def register(mcp, api) -> None:
         enabled: bool | None = None,
         notification_type: str | None = None,
         entity_id: str | None = None,
-    ) -> list:
+    ) -> dict:
         """List rules with optional filters.
 
         Use to review what rules exist and their current state. All filter
         parameters are optional and combine with AND logic.
+
+        Returns a `RuleListResponse` envelope:
+        ``{"items": [...], "count": N}``. Access rules via
+        ``response["items"]``; ``response["count"]`` gives the total
+        matching the filters.
 
         Common patterns:
         - Review active rules: enabled=true

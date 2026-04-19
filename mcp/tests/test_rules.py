@@ -244,21 +244,40 @@ class TestCreateRule:
 class TestListRules:
 
     @pytest.mark.anyio
-    async def test_no_filters(self, tools, api):
-        api.get.return_value = []
+    async def test_no_filters_empty_envelope(self, tools, api):
+        api.get.return_value = {"items": [], "count": 0}
         result = await tools["list_rules"]()
-        assert result == []
+        assert result == {"items": [], "count": 0}
+        assert result["items"] == []
+        assert result["count"] == 0
         api.get.assert_called_once_with("/api/rules/", params=None)
 
     @pytest.mark.anyio
+    async def test_envelope_items_passed_through(self, tools, api):
+        api.get.return_value = {
+            "items": [
+                {"id": VALID_UUID, "name": "Skip alert"},
+                {"id": VALID_UUID_2, "name": "Silence alert"},
+            ],
+            "count": 2,
+        }
+        result = await tools["list_rules"]()
+        assert result["count"] == 2
+        assert len(result["items"]) == 2
+        assert result["items"][0]["name"] == "Skip alert"
+        assert result["items"][1]["id"] == VALID_UUID_2
+
+    @pytest.mark.anyio
     async def test_all_filters(self, tools, api):
-        api.get.return_value = [{"id": VALID_UUID}]
-        await tools["list_rules"](
+        api.get.return_value = {"items": [{"id": VALID_UUID}], "count": 1}
+        result = await tools["list_rules"](
             entity_type="habit",
             enabled=True,
             notification_type="habit_nudge",
             entity_id=VALID_UUID,
         )
+        assert result["count"] == 1
+        assert result["items"][0]["id"] == VALID_UUID
         call_params = api.get.call_args[1]["params"]
         assert call_params["entity_type"] == "habit"
         assert call_params["enabled"] is True
