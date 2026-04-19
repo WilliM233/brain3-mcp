@@ -440,12 +440,146 @@ class TestEvaluateRules:
     @pytest.mark.anyio
     async def test_happy_path(self, tools, api):
         api.post.return_value = {
-            "evaluated": 5, "fired": 2, "skipped": 3, "results": [],
+            "summary": {
+                "total_rules_evaluated": 5,
+                "fired": 2,
+                "cooldown": 1,
+                "condition_not_met": 2,
+                "no_matching_entities": 0,
+                "error": 0,
+                "total_notifications_created": 2,
+                "evaluated_at": "2026-04-19T12:00:00Z",
+            },
+            "results": [],
         }
         result = await tools["evaluate_rules"]()
-        assert result["evaluated"] == 5
-        assert result["fired"] == 2
+        assert result["summary"]["total_rules_evaluated"] == 5
+        assert result["summary"]["fired"] == 2
+        assert result["summary"]["cooldown"] == 1
+        assert result["summary"]["total_notifications_created"] == 2
+        assert result["summary"]["evaluated_at"] == "2026-04-19T12:00:00Z"
+        assert result["results"] == []
         api.post.assert_called_once_with("/api/rules/evaluate")
+
+    @pytest.mark.anyio
+    async def test_envelope_empty_results(self, tools, api):
+        api.post.return_value = {
+            "summary": {
+                "total_rules_evaluated": 0,
+                "fired": 0,
+                "cooldown": 0,
+                "condition_not_met": 0,
+                "no_matching_entities": 0,
+                "error": 0,
+                "total_notifications_created": 0,
+                "evaluated_at": "2026-04-19T12:00:00Z",
+            },
+            "results": [],
+        }
+        result = await tools["evaluate_rules"]()
+        assert result["summary"]["total_rules_evaluated"] == 0
+        assert result["results"] == []
+
+    @pytest.mark.anyio
+    async def test_envelope_results_passed_through(self, tools, api):
+        api.post.return_value = {
+            "summary": {
+                "total_rules_evaluated": 2,
+                "fired": 1,
+                "cooldown": 0,
+                "condition_not_met": 1,
+                "no_matching_entities": 0,
+                "error": 0,
+                "total_notifications_created": 1,
+                "evaluated_at": "2026-04-19T12:00:00Z",
+            },
+            "results": [
+                {
+                    "rule_id": VALID_UUID,
+                    "rule_name": "Skip alert",
+                    "fired": True,
+                    "reason": "fired",
+                    "notifications_created": 1,
+                    "entities_evaluated": 1,
+                },
+                {
+                    "rule_id": VALID_UUID_2,
+                    "rule_name": "Silence alert",
+                    "fired": False,
+                    "reason": "condition_not_met",
+                    "notifications_created": 0,
+                    "entities_evaluated": 1,
+                },
+            ],
+        }
+        result = await tools["evaluate_rules"]()
+        assert result["summary"]["fired"] == 1
+        assert len(result["results"]) == 2
+        assert result["results"][0]["rule_id"] == VALID_UUID
+        assert result["results"][0]["fired"] is True
+        assert result["results"][1]["reason"] == "condition_not_met"
+
+    @pytest.mark.anyio
+    async def test_envelope_preserves_summary_as_nested_object_via_fastmcp(
+        self, api,
+    ):
+        """Drive the tool through FastMCP.call_tool and confirm the summary
+        is serialized as a nested JSON object, not a stringified blob.
+
+        Covers the cardinal concern from Wave 3 #65: the `summary` field
+        must remain a parseable object end-to-end through the MCP layer.
+        A single content block (no list iteration) carries the envelope,
+        and JSON-parsing that block yields a nested dict with `summary` as
+        an object — never as a pre-stringified inner blob.
+        """
+        import json
+
+        mcp = FastMCP("test-envelope")
+        register(mcp, api)
+
+        summary_payload = {
+            "total_rules_evaluated": 3,
+            "fired": 1,
+            "cooldown": 1,
+            "condition_not_met": 1,
+            "no_matching_entities": 0,
+            "error": 0,
+            "total_notifications_created": 1,
+            "evaluated_at": "2026-04-19T12:00:00Z",
+        }
+        results_payload = [
+            {
+                "rule_id": VALID_UUID,
+                "rule_name": "Skip alert",
+                "fired": True,
+                "reason": "fired",
+                "notifications_created": 1,
+                "entities_evaluated": 1,
+            },
+        ]
+        api.post.return_value = {
+            "summary": summary_payload,
+            "results": results_payload,
+        }
+
+        content_blocks = await mcp.call_tool("evaluate_rules", {})
+
+        assert len(content_blocks) == 1, (
+            "envelope must produce a single content block — a list return "
+            "would trigger FastMCP list-iteration (P1.1)"
+        )
+        text_block = content_blocks[0]
+        assert text_block.type == "text"
+
+        parsed = json.loads(text_block.text)
+        assert isinstance(parsed, dict)
+        assert set(parsed.keys()) == {"summary", "results"}
+        assert isinstance(parsed["summary"], dict), (
+            "summary must be a nested JSON object, not a stringified blob"
+        )
+        assert parsed["summary"] == summary_payload
+        assert isinstance(parsed["results"], list)
+        assert parsed["results"] == results_payload
 
 
 # ---------------------------------------------------------------------------
