@@ -235,6 +235,45 @@ class TestGetHabitEffectiveGraduationParams:
 
 
 # ---------------------------------------------------------------------------
+# [A-9-accountable-since] accountable_since rename — pass-through coverage
+# ---------------------------------------------------------------------------
+
+class TestAccountableSinceRename:
+    """D2 rename: MCP tools accept ``accountable_since`` and forward it verbatim."""
+
+    @pytest.mark.anyio
+    async def test_create_habit_accountable_since_passed_through(
+        self, tools, api,
+    ):
+        api.post.return_value = {"id": VALID_UUID}
+        await tools["create_habit"](
+            title="Floss", frequency="daily", accountable_since="2026-04-10",
+        )
+        body = api.post.call_args[1]["json"]
+        assert body["accountable_since"] == "2026-04-10"
+
+    @pytest.mark.anyio
+    async def test_create_habit_accountable_since_omitted_when_none(
+        self, tools, api,
+    ):
+        api.post.return_value = {"id": VALID_UUID}
+        await tools["create_habit"](title="Floss", frequency="daily")
+        body = api.post.call_args[1]["json"]
+        assert "accountable_since" not in body
+
+    @pytest.mark.anyio
+    async def test_update_habit_accountable_since_passed_through(
+        self, tools, api,
+    ):
+        api.patch.return_value = {"id": VALID_UUID}
+        await tools["update_habit"](
+            habit_id=VALID_UUID, accountable_since="2026-04-10",
+        )
+        body = api.patch.call_args[1]["json"]
+        assert body["accountable_since"] == "2026-04-10"
+
+
+# ---------------------------------------------------------------------------
 # [MCP-BUG-01] Structured-detail error envelope — regression coverage
 # ---------------------------------------------------------------------------
 

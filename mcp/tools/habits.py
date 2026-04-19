@@ -26,7 +26,7 @@ def register(mcp, api) -> None:
         frequency: str | None = None,
         notification_frequency: str = "none",
         scaffolding_status: str = "tracking",
-        introduced_at: str | None = None,
+        accountable_since: str | None = None,
         graduation_window: int | None = None,
         graduation_target: float | None = None,
         graduation_threshold: int | None = None,
@@ -40,6 +40,11 @@ def register(mcp, api) -> None:
 
         Scaffolding starts at "tracking" — the user just logs completions.
         Later stages add accountability and graduation criteria.
+
+        ``accountable_since`` is the date the habit becomes accountable
+        (ISO date, YYYY-MM-DD). Auto-populated on the tracking→accountable
+        transition. Set explicitly only to backdate the accountability anchor
+        — otherwise leave it unset and let the transition stamp it.
 
         friction_score (1–5) captures how hard this habit feels to the user
         and drives graduation defaults: higher friction = longer window and
@@ -70,7 +75,7 @@ def register(mcp, api) -> None:
             "frequency": frequency,
             "notification_frequency": notification_frequency,
             "scaffolding_status": scaffolding_status,
-            "introduced_at": introduced_at,
+            "accountable_since": accountable_since,
             "graduation_window": graduation_window,
             "graduation_target": graduation_target,
             "graduation_threshold": graduation_threshold,
@@ -83,10 +88,12 @@ def register(mcp, api) -> None:
         """Get a single habit with full detail.
 
         Returns habit details including scaffolding status, completion stats,
-        the parent routine (if linked), and ``effective_graduation_params`` —
-        the resolved graduation criteria after friction-tier defaults and
-        re-scaffold tightening are applied. Use this when you need the
-        complete habit view for display or evaluation.
+        ``accountable_since`` (the date the habit entered the accountable
+        stage — null while still in tracking), the parent routine (if
+        linked), and ``effective_graduation_params`` — the resolved
+        graduation criteria after friction-tier defaults and re-scaffold
+        tightening are applied. Use this when you need the complete habit
+        view for display or evaluation.
 
         The response includes the bare override columns
         (``graduation_window``, ``graduation_target``, ``graduation_threshold``)
@@ -143,7 +150,7 @@ def register(mcp, api) -> None:
         frequency: str | None = None,
         notification_frequency: str | None = None,
         scaffolding_status: str | None = None,
-        introduced_at: str | None = None,
+        accountable_since: str | None = None,
         graduation_window: int | None = None,
         graduation_target: float | None = None,
         graduation_threshold: int | None = None,
@@ -154,6 +161,11 @@ def register(mcp, api) -> None:
         Only provided fields are changed. Use this to advance scaffolding
         status, pause/resume a habit, adjust graduation criteria, or change
         notification frequency.
+
+        ``accountable_since`` (ISO date, YYYY-MM-DD) is normally auto-populated
+        on the tracking→accountable transition. Pass it here only to backdate
+        or correct the accountability anchor; routine accountability
+        transitions do not need it set explicitly.
 
         friction_score (1–5) captures how hard this habit feels to the user
         and drives graduation defaults: higher friction = longer window and
@@ -179,7 +191,7 @@ def register(mcp, api) -> None:
             "frequency": frequency,
             "notification_frequency": notification_frequency,
             "scaffolding_status": scaffolding_status,
-            "introduced_at": introduced_at,
+            "accountable_since": accountable_since,
             "graduation_window": graduation_window,
             "graduation_target": graduation_target,
             "graduation_threshold": graduation_threshold,
