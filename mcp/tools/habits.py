@@ -94,12 +94,15 @@ def register(mcp, api) -> None:
         routine_id: str | None = None,
         status: str | None = None,
         scaffolding_status: str | None = None,
-    ) -> list:
+    ) -> dict:
         """List habits with optional filters.
 
         Use this to see what habits the user is building, check on scaffolding
         progress, or find habits linked to a specific routine. All filters
         combine with AND logic.
+
+        Returns a `HabitListResponse` envelope: ``{"items": [...], "count": N}``.
+        ``items`` is the habit list; ``count`` is the total matching the filters.
         """
         validate_uuid(routine_id, "routine_id")
         validate_enum(status, "status", HABIT_STATUSES)

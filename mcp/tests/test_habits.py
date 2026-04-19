@@ -118,6 +118,60 @@ class TestUpdateHabitFrictionScore:
 
 
 # ---------------------------------------------------------------------------
+# list_habits — envelope response shape
+# ---------------------------------------------------------------------------
+
+class TestListHabits:
+    """list_habits returns the {items, count} envelope from /api/habits/."""
+
+    @pytest.mark.anyio
+    async def test_no_filters_empty_envelope(self, tools, api):
+        api.get.return_value = {"items": [], "count": 0}
+        result = await tools["list_habits"]()
+        assert result == {"items": [], "count": 0}
+        assert result["items"] == []
+        assert result["count"] == 0
+        api.get.assert_called_once_with("/api/habits/", params=None)
+
+    @pytest.mark.anyio
+    async def test_envelope_items_passed_through(self, tools, api):
+        api.get.return_value = {
+            "items": [
+                {"id": VALID_UUID, "title": "Floss"},
+                {"id": "b2c3d4e5-f6a7-8901-bcde-f12345678901", "title": "Walk"},
+            ],
+            "count": 2,
+        }
+        result = await tools["list_habits"]()
+        assert result["count"] == 2
+        assert len(result["items"]) == 2
+        assert result["items"][0]["title"] == "Floss"
+
+    @pytest.mark.anyio
+    async def test_all_filters_forwarded(self, tools, api):
+        api.get.return_value = {"items": [], "count": 0}
+        await tools["list_habits"](
+            routine_id=VALID_UUID,
+            status="active",
+            scaffolding_status="tracking",
+        )
+        call_params = api.get.call_args[1]["params"]
+        assert call_params["routine_id"] == VALID_UUID
+        assert call_params["status"] == "active"
+        assert call_params["scaffolding_status"] == "tracking"
+
+    @pytest.mark.anyio
+    async def test_invalid_status_filter(self, tools):
+        with pytest.raises(InputValidationError, match="status"):
+            await tools["list_habits"](status="bogus")
+
+    @pytest.mark.anyio
+    async def test_invalid_scaffolding_status_filter(self, tools):
+        with pytest.raises(InputValidationError, match="scaffolding_status"):
+            await tools["list_habits"](scaffolding_status="bogus")
+
+
+# ---------------------------------------------------------------------------
 # [MCP-BUG-01] Structured-detail error envelope — regression coverage
 # ---------------------------------------------------------------------------
 
