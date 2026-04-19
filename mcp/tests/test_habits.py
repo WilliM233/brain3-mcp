@@ -172,6 +172,69 @@ class TestListHabits:
 
 
 # ---------------------------------------------------------------------------
+# get_habit — effective_graduation_params pass-through
+# ---------------------------------------------------------------------------
+
+
+class TestGetHabitEffectiveGraduationParams:
+    """[2A-Enh-01] get_habit must pass ``effective_graduation_params`` through.
+
+    The MCP shim is a pass-through over GET /api/habits/{id}, so these tests
+    assert the shim forwards the nested composite field intact — matching the
+    real API contract surfaced by HabitDetailResponse in brain3.
+    """
+
+    @pytest.mark.anyio
+    async def test_get_habit_returns_effective_graduation_params_friction_default(
+        self, tools, api,
+    ):
+        api.get.return_value = {
+            "id": VALID_UUID,
+            "title": "Floss",
+            "graduation_window": None,
+            "graduation_target": None,
+            "graduation_threshold": None,
+            "friction_score": 3,
+            "effective_graduation_params": {
+                "window_days": 45,
+                "target_rate": 0.85,
+                "threshold_days": 45,
+                "source": "friction_default",
+            },
+        }
+        result = await tools["get_habit"](habit_id=VALID_UUID)
+        api.get.assert_called_once_with(f"/api/habits/{VALID_UUID}")
+        assert result["effective_graduation_params"] == {
+            "window_days": 45,
+            "target_rate": 0.85,
+            "threshold_days": 45,
+            "source": "friction_default",
+        }
+
+    @pytest.mark.anyio
+    async def test_get_habit_returns_effective_graduation_params_override(
+        self, tools, api,
+    ):
+        api.get.return_value = {
+            "id": VALID_UUID,
+            "title": "Floss",
+            "graduation_window": 100,
+            "graduation_target": 0.70,
+            "graduation_threshold": 100,
+            "friction_score": 1,
+            "effective_graduation_params": {
+                "window_days": 100,
+                "target_rate": 0.70,
+                "threshold_days": 100,
+                "source": "override",
+            },
+        }
+        result = await tools["get_habit"](habit_id=VALID_UUID)
+        assert result["effective_graduation_params"]["source"] == "override"
+        assert result["effective_graduation_params"]["window_days"] == 100
+
+
+# ---------------------------------------------------------------------------
 # [MCP-BUG-01] Structured-detail error envelope — regression coverage
 # ---------------------------------------------------------------------------
 
