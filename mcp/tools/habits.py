@@ -80,11 +80,28 @@ def register(mcp, api) -> None:
 
     @mcp.tool()
     async def get_habit(habit_id: str) -> dict:
-        """Get a habit with its parent routine info.
+        """Get a single habit with full detail.
 
         Returns habit details including scaffolding status, completion stats,
-        and the parent routine (if linked). Use this to check on a specific
-        habit's progress or configuration.
+        the parent routine (if linked), and ``effective_graduation_params`` —
+        the resolved graduation criteria after friction-tier defaults and
+        re-scaffold tightening are applied. Use this when you need the
+        complete habit view for display or evaluation.
+
+        The response includes the bare override columns
+        (``graduation_window``, ``graduation_target``, ``graduation_threshold``)
+        which reflect only what was explicitly set on the habit and may be
+        ``null``. For the actual values the graduation engine will use,
+        read ``effective_graduation_params`` instead.
+
+        ``effective_graduation_params`` is a nested object shaped:
+        ``{"window_days": int, "target_rate": float, "threshold_days": int,
+        "source": "override" | "friction_default"}``.
+        ``source`` is ``"override"`` when any of the three bare override
+        columns is non-null (overrides win per-field, others fall back to
+        friction defaults) and ``"friction_default"`` when all three are
+        null (values come from the friction-score tier). The field is
+        computed at serialization — it cannot be set on create/update.
         """
         validate_uuid(habit_id, "habit_id")
         return await api.get(f"/api/habits/{habit_id}")
