@@ -186,16 +186,32 @@ class TestGetNotification:
 class TestListNotifications:
 
     @pytest.mark.anyio
-    async def test_no_filters(self, tools, api):
-        api.get.return_value = []
+    async def test_no_filters_empty_envelope(self, tools, api):
+        api.get.return_value = {"items": [], "count": 0}
         result = await tools["list_notifications"]()
-        assert result == []
+        assert result == {"items": [], "count": 0}
+        assert result["items"] == []
+        assert result["count"] == 0
         api.get.assert_called_once_with("/api/notifications/", params=None)
 
     @pytest.mark.anyio
+    async def test_envelope_items_passed_through(self, tools, api):
+        api.get.return_value = {
+            "items": [
+                {"id": VALID_UUID, "status": "pending"},
+                {"id": VALID_UUID_2, "status": "delivered"},
+            ],
+            "count": 2,
+        }
+        result = await tools["list_notifications"]()
+        assert result["count"] == 2
+        assert len(result["items"]) == 2
+        assert result["items"][0]["status"] == "pending"
+
+    @pytest.mark.anyio
     async def test_all_filters(self, tools, api):
-        api.get.return_value = [{"id": VALID_UUID}]
-        await tools["list_notifications"](
+        api.get.return_value = {"items": [{"id": VALID_UUID}], "count": 1}
+        result = await tools["list_notifications"](
             notification_type="habit_nudge",
             status="pending",
             delivery_type="notification",
@@ -207,6 +223,8 @@ class TestListNotifications:
             has_response=False,
             rule_id=VALID_UUID_2,
         )
+        assert result["count"] == 1
+        assert result["items"][0]["id"] == VALID_UUID
         call_params = api.get.call_args[1]["params"]
         assert call_params["notification_type"] == "habit_nudge"
         assert call_params["status"] == "pending"

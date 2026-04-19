@@ -101,16 +101,22 @@ def register(mcp, api) -> None:
         scheduled_before: str | None = None,
         has_response: bool | None = None,
         rule_id: str | None = None,
-    ) -> list:
+    ) -> dict:
         """Browse notifications with composable filters.
 
         All filter parameters are optional and combine with AND logic.
         Results are ordered by scheduled_at descending (newest first).
 
+        Returns a `NotificationListResponse` envelope:
+        ``{"items": [...], "count": N}``. Access notifications via
+        ``response["items"]``; ``response["count"]`` gives the total
+        matching the filters.
+
         Common patterns:
         - Pending queue: status="pending"
         - Delivered but unanswered: status="delivered"
-        - Silence tracking: has_response=false with a scheduled_after window
+        - Silence tracking: status="expired" + has_response=false
+          (or has_response=false with a scheduled_after window)
         - By origin: scheduled_by="claude" or scheduled_by="rule"
         - By target: target_entity_type + target_entity_id
         """
